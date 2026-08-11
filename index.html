@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Chi phí Dầu &amp; VETC</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg: #14181D;
+    --bg-panel: #1B2129;
+    --bg-panel-2: #202832;
+    --line: #2A323D;
+    --text: #E7ECF2;
+    --text-dim: #8B98A8;
+    --text-faint: #5B6675;
+    --amber: #E8A33D;
+    --amber-dim: #4A3A1E;
+    --teal: #3DBFB0;
+    --teal-dim: #1C3E3A;
+    --danger: #E2604F;
+    --font-display: 'Oswald', sans-serif;
+    --font-body: 'IBM Plex Sans', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1240px;margin:0 auto;padding:28px 20px 60px;}
+
+  /* ---------- Header / route strip ---------- */
+  header{margin-bottom:22px;}
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:.18em;
+    color:var(--text-faint);
+    text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  h1{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:clamp(28px,4vw,40px);
+    margin:0 0 14px;
+    letter-spacing:.01em;
+    text-transform:uppercase;
+  }
+  .route-strip{
+    position:relative;
+    height:46px;
+    display:flex;
+    align-items:center;
+    margin-bottom:6px;
+  }
+  .route-strip .road{
+    position:absolute;
+    left:0;right:0;top:50%;
+    height:2px;
+    background:repeating-linear-gradient(90deg, var(--line) 0 14px, transparent 14px 24px);
+    transform:translateY(-50%);
+  }
+  .route-stops{display:flex;justify-content:space-between;width:100%;position:relative;}
+  .stop{
+    background:var(--bg);
+    padding:0 12px 0 0;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-family:var(--font-mono);
+    font-size:12px;
+    color:var(--text-dim);
+  }
+  .stop:last-child{padding:0 0 0 12px;}
+  .stop .dot{width:8px;height:8px;border-radius:50%;background:var(--amber);flex:none;}
+  .stop.qn .dot{background:var(--amber);}
+  .stop.dl .dot{background:var(--teal);}
+  .stop b{color:var(--text);font-weight:600;}
+
+  /* ---------- Filter bar ---------- */
+  .filters{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin:22px 0 24px;
+    padding:14px 16px;
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+  }
+  .filters .fgroup{display:flex;flex-direction:column;gap:4px;}
+  .filters label{
+    font-family:var(--font-mono);
+    font-size:10px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+  }
+  .filters select{
+    background:var(--bg-panel-2);
+    border:1px solid var(--line);
+    color:var(--text);
+    font-family:var(--font-body);
+    font-weight:500;
+    font-size:13px;
+    padding:8px 10px;
+    border-radius:6px;
+    min-width:150px;
+    cursor:pointer;
+  }
+  .filters select:focus{outline:2px solid var(--amber);outline-offset:1px;}
+  .filters .reset{
+    align-self:flex-end;
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    font-family:var(--font-mono);
+    font-size:11px;
+    padding:8px 14px;
+    border-radius:6px;
+    cursor:pointer;
+    margin-left:auto;
+  }
+  .filters .reset:hover{border-color:var(--text-dim);color:var(--text);}
+
+  /* ---------- KPI cards ---------- */
+  .kpi-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:12px;
+    margin-bottom:24px;
+  }
+  .kpi{
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:16px 18px;
+    position:relative;
+    overflow:hidden;
+  }
+  .kpi::before{
+    content:'';
+    position:absolute;left:0;top:0;bottom:0;width:3px;
+    background:var(--kpi-accent, var(--amber));
+  }
+  .kpi.total::before{background:var(--text-dim);}
+  .kpi.vetc::before{background:var(--teal);}
+  .kpi .k-label{
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    letter-spacing:.06em;
+    color:var(--text-faint);
+    text-transform:uppercase;
+    margin-bottom:8px;
+  }
+  .kpi .k-value{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:24px;
+    letter-spacing:.01em;
+  }
+  .kpi .k-sub{
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--text-dim);
+    margin-top:4px;
+  }
+
+  /* ---------- Panels ---------- */
+  .panel{
+    background:var(--bg-panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:18px 20px 20px;
+    margin-bottom:18px;
+  }
+  .panel h2{
+    font-family:var(--font-display);
+    font-size:15px;
+    font-weight:600;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    margin:0 0 4px;
+    color:var(--text);
+  }
+  .panel .p-sub{
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--text-faint);
+    margin:0 0 14px;
+  }
+  .grid-2{display:grid;grid-template-columns:1.6fr 1fr;gap:18px;}
+  @media (max-width:860px){.grid-2{grid-template-columns:1fr;}}
+  .chart-box{position:relative;height:300px;}
+  .chart-box.small{height:260px;}
+
+  /* ---------- Table ---------- */
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{
+    text-align:left;
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    padding:8px 10px;
+    border-bottom:1px solid var(--line);
+  }
+  thead th.num, tbody td.num{text-align:right;}
+  tbody td{padding:9px 10px;border-bottom:1px solid var(--line);font-family:var(--font-body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:var(--bg-panel-2);}
+  .rank{
+    font-family:var(--font-mono);
+    color:var(--text-faint);
+    width:26px;
+    display:inline-block;
+  }
+  .plate{font-family:var(--font-mono);font-weight:600;letter-spacing:.02em;}
+  .bar-cell{display:flex;align-items:center;gap:10px;}
+  .mini-bar{height:6px;border-radius:3px;background:var(--amber);flex:none;}
+  .num.mono{font-family:var(--font-mono);}
+
+  footer{
+    margin-top:20px;
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--text-faint);
+    text-align:center;
+    line-height:1.7;
+  }
+
+  ::-webkit-scrollbar{height:8px;width:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Vận hành &amp; Logistics — Báo cáo chi phí</div>
+    <h1>Dashboard Chi phí Dầu &amp; VETC</h1>
+    <div class="route-strip">
+      <div class="road"></div>
+      <div class="route-stops">
+        <div class="stop"><span class="dot"></span><b>HCM</b></div>
+        <div class="stop qn"><span class="dot"></span>Quảng Ngãi</div>
+        <div class="stop dl"><span class="dot"></span>Đà Lạt</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="filters">
+    <div class="fgroup">
+      <label for="f-thang">Tháng</label>
+      <select id="f-thang"></select>
+    </div>
+    <div class="fgroup">
+      <label for="f-phannhom">Phân nhóm</label>
+      <select id="f-phannhom"></select>
+    </div>
+    <div class="fgroup">
+      <label for="f-loaixe">Loại xe (dầu)</label>
+      <select id="f-loaixe"></select>
+    </div>
+    <button class="reset" id="reset-btn">↺ Xoá lọc</button>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi" style="--kpi-accent:var(--amber)">
+      <div class="k-label">Tổng chi phí Dầu</div>
+      <div class="k-value" id="kpi-dau">—</div>
+      <div class="k-sub" id="kpi-dau-sub">—</div>
+    </div>
+    <div class="kpi vetc">
+      <div class="k-label">Tổng chi phí VETC</div>
+      <div class="k-value" id="kpi-vetc">—</div>
+      <div class="k-sub" id="kpi-vetc-sub">—</div>
+    </div>
+    <div class="kpi total">
+      <div class="k-label">Tổng cộng</div>
+      <div class="k-value" id="kpi-total">—</div>
+      <div class="k-sub" id="kpi-total-sub">Dầu + VETC</div>
+    </div>
+    <div class="kpi" style="--kpi-accent:var(--text-dim)">
+      <div class="k-label">Số xe hoạt động</div>
+      <div class="k-value" id="kpi-xe">—</div>
+      <div class="k-sub">biển số ghi nhận chi phí</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Chi phí theo tháng</h2>
+    <p class="p-sub">Toàn bộ 12 tháng — không áp bộ lọc Tháng, để so sánh xu hướng cả năm</p>
+    <div class="chart-box"><canvas id="chart-month"></canvas></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <h2>Top 10 xe chi phí cao nhất</h2>
+      <p class="p-sub">Dầu + VETC, theo bộ lọc đang chọn</p>
+      <table>
+        <thead>
+          <tr><th style="width:26px"></th><th>Biển số</th><th class="num">Dầu</th><th class="num">VETC</th><th class="num">Tổng</th></tr>
+        </thead>
+        <tbody id="top-vehicle-body"></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h2>Tỷ trọng chi phí</h2>
+      <p class="p-sub">Dầu vs VETC</p>
+      <div class="chart-box small"><canvas id="chart-pie"></canvas></div>
+    </div>
+  </div>
+
+  <footer>
+    Nguồn: CTT_HOÁ_ĐƠN_DẦU.xlsx (Tháng 1–8) &amp; VETC_THÁNG_7.xlsx · Dữ liệu chuẩn hoá biển số để khớp Dầu/VETC<br>
+    Cập nhật số liệu: thay dữ liệu trong file Excel/Google Sheet gốc rồi dựng lại dashboard
+  </footer>
+
+</div>
+
+<script>
+// ============================================================
+// DÁN URL WEB APP APPS SCRIPT VÀO ĐÂY SAU KHI DEPLOY (xem file
+// AppsScript_Code.gs để biết cách deploy). Để trống '' thì dashboard
+// dùng dữ liệu mẫu (snapshot) nhúng sẵn bên dưới.
+// Ví dụ: 'https://script.google.com/macros/s/AKfycb.../exec'
+// ============================================================
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxxHBcyn2h62B2XrHqJmz5kb7ViMY4m3GG1zxpTo3OKPOXiUBzAD8XBNu6lWdHDocJbjA/exec';
+
+const FALLBACK_DATA = {"fuel": [{"m": 1, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05753", "pd": "76H-05753", "tien": 12851337, "lit": 747.7}, {"m": 1, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C13765", "pd": "76C-13765", "tien": 950027, "lit": 55.1}, {"m": 1, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05856", "pd": "76H-05856", "tien": 18050406, "lit": 1049.3}, {"m": 1, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76G00005", "pd": "76G-00005", "tien": 3704012, "lit": 213.8}, {"m": 1, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04522", "pd": "76H-04522", "tien": 3950147, "lit": 229.0}, {"m": 1, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H03122", "pd": "76H-03122", "tien": 13450223, "lit": 782.8}, {"m": 1, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H03529", "pd": "76H-03529", "tien": 11220497, "lit": 650.5}, {"m": 1, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04692", "pd": "76H-04692", "tien": 15620795, "lit": 901.2}, {"m": 1, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H06054", "pd": "76H-06054", "tien": 12950110, "lit": 750.7}, {"m": 1, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04458", "pd": "76H-04458", "tien": 7900465, "lit": 458.0}, {"m": 1, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H06173", "pd": "76H-06173", "tien": 7750114, "lit": 449.3}, {"m": 1, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C13716", "pd": "76C-13716", "tien": 3510684, "lit": 202.7}, {"m": 1, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C07536", "pd": "76C-07536", "tien": 2500000, "lit": 138.9}, {"m": 2, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76G00005", "pd": "76G-00005", "tien": 3900605, "lit": 51895.2}, {"m": 2, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C13716", "pd": "76C-13716", "tien": 4760747, "lit": 256.6}, {"m": 2, "pn": "C\u00d4NG TY", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05841", "pd": "76H-05841", "tien": 1000000, "lit": 54.2}, {"m": 2, "pn": "C\u00d4NG TY", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03945", "pd": "76H-03945", "tien": 2000000, "lit": 106.3}, {"m": 2, "pn": "C\u00d4NG TY", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76G00488", "pd": "76G-00488", "tien": 1000000, "lit": 53.1}, {"m": 2, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76B01278", "pd": "76B-01278", "tien": 740800, "lit": 40}, {"m": 2, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05856", "pd": "76H-05856", "tien": 9640892, "lit": 510.0}, {"m": 2, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05776", "pd": "76H-05776", "tien": 1184002, "lit": 63.9}, {"m": 2, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76B01647", "pd": "76B-01647", "tien": 620020, "lit": 30.8}, {"m": 2, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04458", "pd": "76H-04458", "tien": 9820261, "lit": 509.6}, {"m": 2, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C13765", "pd": "76C-13765", "tien": 1140071, "lit": 59.2}, {"m": 2, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04692", "pd": "76H-04692", "tien": 4540301, "lit": 235.6}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H03529", "pd": "76H-03529", "tien": 166800221, "lit": 5843.5}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H03122", "pd": "76H-03122", "tien": 181322424, "lit": 6259.4}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C12055", "pd": "76C-12055", "tien": 7329208, "lit": 262.7}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04692", "pd": "76H-04692", "tien": 137275240, "lit": 4912.5}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76G00005", "pd": "76G-00005", "tien": 8281541, "lit": 281.5}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04458", "pd": "76H-04458", "tien": 157817778, "lit": 5314.9}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76B01278", "pd": "76B-01278", "tien": 5300138, "lit": 199.8}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H06054", "pd": "76H-06054", "tien": 167809861, "lit": 5614.1}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05753", "pd": "76H-05753", "tien": 122990946, "lit": 4218.9}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C13716", "pd": "76C-13716", "tien": 9485265, "lit": 320.3}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C13765", "pd": "76C-13765", "tien": 11633665, "lit": 398.0}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05787", "pd": "76H-05787", "tien": 7515805, "lit": 272.6}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76B01647", "pd": "76B-01647", "tien": 1390142, "lit": 63.0}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C07536", "pd": "76C-07536", "tien": 76259024, "lit": 2368.9}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04522", "pd": "76H-04522", "tien": 171877433, "lit": 5657.7}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07222", "pd": "76H-07222", "tien": 3000000, "lit": 95.8}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05856", "pd": "76H-05856", "tien": 21950910, "lit": 818.0}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05776", "pd": "76H-05776", "tien": 4319845, "lit": 125.6}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "7604522", "pd": "76-04522", "tien": 6700142, "lit": 200.5}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C14065", "pd": "76C-14065", "tien": 800043, "lit": 32.9}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05887", "pd": "76H-05887", "tien": 1700092, "lit": 48.0}, {"m": 3, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H3529", "pd": "76H-3529", "tien": 9040035, "lit": 255.1}, {"m": 4, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H03529", "pd": "76H-03529", "tien": 154778627, "lit": 4875.1}, {"m": 4, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05753", "pd": "76H-05753", "tien": 99392115, "lit": 2871.3}, {"m": 4, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H06054", "pd": "76H-06054", "tien": 124103810, "lit": 3475.5}, {"m": 4, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04522", "pd": "76H-04522", "tien": 131786003, "lit": 3708.6}, {"m": 4, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04692", "pd": "76H-04692", "tien": 168076179, "lit": 4907.2}, {"m": 4, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76B01278", "pd": "76B-01278", "tien": 5970723, "lit": 189.6}, {"m": 4, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C13765", "pd": "76C-13765", "tien": 3900341, "lit": 97.6}, {"m": 4, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C07536", "pd": "76C-07536", "tien": 130776907, "lit": 3885.0}, {"m": 4, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05787", "pd": "76H-05787", "tien": 11698158, "lit": 349.9}, {"m": 4, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C12055", "pd": "76C-12055", "tien": 12328415, "lit": 372.1}, {"m": 4, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H03122", "pd": "76H-03122", "tien": 150464557, "lit": 4437.9}, {"m": 4, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C13716", "pd": "76C-13716", "tien": 9601808, "lit": 280.3}, {"m": 4, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04458", "pd": "76H-04458", "tien": 123147677, "lit": 3801.0}, {"m": 4, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76G00005", "pd": "76G-00005", "tien": 7127649, "lit": 210.8}, {"m": 4, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05776", "pd": "76H-05776", "tien": 5411178, "lit": 180.1}, {"m": 4, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05856", "pd": "76H-05856", "tien": 50073551, "lit": 1714.6}, {"m": 4, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76B01647", "pd": "76B-01647", "tien": 750037, "lit": 32.4}, {"m": 5, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04692", "pd": "76H-04692", "tien": 155789841, "lit": 5583.3}, {"m": 5, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76G00005", "pd": "76G-00005", "tien": 7493562, "lit": 267.0}, {"m": 5, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05753", "pd": "76H-05753", "tien": 131923791, "lit": 4727.4}, {"m": 5, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05787", "pd": "76H-05787", "tien": 7892181, "lit": 283.3}, {"m": 5, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76B01278", "pd": "76B-01278", "tien": 2840434, "lit": 102.1}, {"m": 5, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04458", "pd": "76H-04458", "tien": 130484978, "lit": 4701.1}, {"m": 5, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H03122", "pd": "76H-03122", "tien": 160368155, "lit": 5748.9}, {"m": 5, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05776", "pd": "76H-05776", "tien": 5726844, "lit": 203.2}, {"m": 5, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H03529", "pd": "76H-03529", "tien": 44281344, "lit": 1589.3}, {"m": 5, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H06054", "pd": "76H-06054", "tien": 110322534, "lit": 3951.8}, {"m": 5, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C13716", "pd": "76C-13716", "tien": 6952016, "lit": 249.8}, {"m": 5, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04522", "pd": "76H-04522", "tien": 105143546, "lit": 3770.2}, {"m": 5, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C12055", "pd": "76C-12055", "tien": 6903674, "lit": 248.5}, {"m": 5, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C13765", "pd": "76C-13765", "tien": 9591080, "lit": 345.0}, {"m": 5, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C07536", "pd": "76C-07536", "tien": 105930316, "lit": 3801.3}, {"m": 5, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C14065", "pd": "76C-14065", "tien": 753500, "lit": 32.1}, {"m": 5, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76B01647", "pd": "76B-01647", "tien": 860042, "lit": 34.3}, {"m": 6, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04692", "pd": "76H-04692", "tien": 127262969, "lit": 0}, {"m": 6, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05753", "pd": "76H-05753", "tien": 131618483, "lit": 0}, {"m": 6, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H03122", "pd": "76H-03122", "tien": 150800017, "lit": 0}, {"m": 6, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C13765", "pd": "76C-13765", "tien": 9340383, "lit": 0}, {"m": 6, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C07536", "pd": "76C-07536", "tien": 121716884, "lit": 0}, {"m": 6, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H06054", "pd": "76H-06054", "tien": 86849413, "lit": 0}, {"m": 6, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76G00005", "pd": "76G-00005", "tien": 6799464, "lit": 0}, {"m": 6, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04458", "pd": "76H-04458", "tien": 81408066, "lit": 0}, {"m": 6, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C12055", "pd": "76C-12055", "tien": 7304885, "lit": 0}, {"m": 6, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C13716", "pd": "76C-13716", "tien": 5269271, "lit": 0}, {"m": 6, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76B01647", "pd": "76B-01647", "tien": 1480144, "lit": 0}, {"m": 6, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05787", "pd": "76H05787", "tien": 5761692, "lit": 0}, {"m": 6, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76B01278", "pd": "76B-01278", "tien": 2160037, "lit": 0}, {"m": 6, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05776", "pd": "76H-05776", "tien": 1838000, "lit": 0}, {"m": 6, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76B06147", "pd": "76B-06147", "tien": 770074, "lit": 0}, {"m": 6, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "51G85376", "pd": "51G-85376", "tien": 800348, "lit": 0}, {"m": 6, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C03716", "pd": "76C-03716", "tien": 1100126, "lit": 0}, {"m": 7, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04692", "pd": "76H-04692", "tien": 137015394, "lit": 0}, {"m": 7, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C07536", "pd": "76C-07536", "tien": 24700432, "lit": 0}, {"m": 7, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H06054", "pd": "76H-06054", "tien": 36843628, "lit": 0}, {"m": 7, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76B01647", "pd": "76B-01647", "tien": 1657091, "lit": 0}, {"m": 7, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05753", "pd": "76H-05753", "tien": 134239727, "lit": 0}, {"m": 7, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C12055", "pd": "76C-12055", "tien": 7914491, "lit": 0}, {"m": 7, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H03122", "pd": "76H-03122", "tien": 126364210, "lit": 0}, {"m": 7, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04458", "pd": "76H-04458", "tien": 153028674, "lit": 0}, {"m": 7, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05856", "pd": "76H-05856", "tien": 20500666, "lit": 0}, {"m": 7, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C13765", "pd": "76C-13765", "tien": 8669046, "lit": 0}, {"m": 7, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05787", "pd": "76H-05787", "tien": 4980638, "lit": 0}, {"m": 7, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C13716", "pd": "76C-13716", "tien": 5837541, "lit": 0}, {"m": 7, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H03529", "pd": "76H-03529", "tien": 36867356, "lit": 0}, {"m": 7, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76G00005", "pd": "76G-00005", "tien": 5457693, "lit": 0}, {"m": 7, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04522", "pd": "76H-04522", "tien": 52648189, "lit": 0}, {"m": 7, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05776", "pd": "76H-05776", "tien": 2390050, "lit": 0}, {"m": 7, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76B01278", "pd": "76B-01278", "tien": 1150002, "lit": 0}, {"m": 8, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04692", "pd": "76H-04692", "tien": 51740793, "lit": 0}, {"m": 8, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05753", "pd": "76H-05753", "tien": 28200505, "lit": 0}, {"m": 8, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H03122", "pd": "76H-03122", "tien": 28100952, "lit": 0}, {"m": 8, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H06054", "pd": "76H-06054", "tien": 40380782, "lit": 0}, {"m": 8, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H04458", "pd": "76H-04458", "tien": 42121485, "lit": 0}, {"m": 8, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C13765", "pd": "76C-13765", "tien": 4283027, "lit": 0}, {"m": 8, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05787", "pd": "76H-05787", "tien": 2871269, "lit": 0}, {"m": 8, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C13716", "pd": "76C-13716", "tien": 2620170, "lit": 0}, {"m": 8, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H03529", "pd": "76H-03529", "tien": 37100636, "lit": 0}, {"m": 8, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C12055", "pd": "76C-12055", "tien": 2570170, "lit": 0}, {"m": 8, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76C07536", "pd": "76C-07536", "tien": 22281231, "lit": 0}, {"m": 8, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76G00005", "pd": "76G-00005", "tien": 1499628, "lit": 0}, {"m": 8, "pn": "C\u00d4NG TY", "lx": "XE TAI", "p": "76H05875", "pd": "76H-05875", "tien": 1629580, "lit": 0}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06131", "pd": "76H-06131", "tien": 19360439, "lit": 1118.7}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03945", "pd": "76H-03945", "tien": 14310252, "lit": 829.2}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04095", "pd": "76H-04095", "tien": 18161128, "lit": 1051.3}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "50H45112", "pd": "50H-45112", "tien": 21333181, "lit": 1228.4}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04004", "pd": "76H-04004", "tien": 21010062, "lit": 1210.6}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07250", "pd": "76H-07250", "tien": 26875238, "lit": 1552.7}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76G00685", "pd": "76G-00685", "tien": 22260564, "lit": 1283.9}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07270", "pd": "76H-07270", "tien": 16950059, "lit": 978.7}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05841", "pd": "76H-05841", "tien": 8900070, "lit": 512.7}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06132", "pd": "76H-06132", "tien": 22770313, "lit": 1309.8}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04201", "pd": "76H-04201", "tien": 15750332, "lit": 901.8}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03967", "pd": "76H-03967", "tien": 26630980, "lit": 1531.5}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "0", "pd": 0, "tien": 20574279, "lit": 1187.4}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H02406", "pd": "76H-02406", "tien": 21090852, "lit": 1213.2}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03954", "pd": "76H-03954", "tien": 21416930, "lit": 1238.0}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05758", "pd": "76H-05758", "tien": 3850407, "lit": 223.2}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06221", "pd": "76H-06221", "tien": 1480050, "lit": 85.8}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76G00488", "pd": "76G-00488", "tien": 15700383, "lit": 906.7}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "50H45164", "pd": "50H-45164", "tien": 12040398, "lit": 695.8}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06178", "pd": "76H-06178", "tien": 24720893, "lit": 1426.1}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06127", "pd": "76H-06127", "tien": 26270290, "lit": 1508.9}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "51B29852", "pd": "51B-29852", "tien": 1420110, "lit": 79.9}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06059", "pd": "76H-06059", "tien": 15640939, "lit": 899.0}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H03645", "pd": "76H-03645", "tien": 3200002, "lit": 179.9}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76G00001", "pd": "76G-00001", "tien": 920040, "lit": 51.5}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07230", "pd": "76H-07230", "tien": 22933096, "lit": 1303.5}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04042", "pd": "76H-04042", "tien": 23466934, "lit": 1357.4}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50F04650", "pd": "50F-04650", "tien": 500000, "lit": 29.0}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50H48959", "pd": "50H-48959", "tien": 1000000, "lit": 58.0}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06150", "pd": "76H-06150", "tien": 10400215, "lit": 600.9}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06117", "pd": "76H-06117", "tien": 7170998, "lit": 412.8}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03947", "pd": "76H-03947", "tien": 17338659, "lit": 1010.7}, {"m": 1, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07222", "pd": "76H-07222", "tien": 4320056, "lit": 247.9}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06150", "pd": "76H-06150", "tien": 23397544, "lit": 1247.1}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06127", "pd": "76H-06127", "tien": 27433280, "lit": 1468.5}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06221", "pd": "76H-06221", "tien": 36790075, "lit": 1964.7}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "0", "pd": 0, "tien": 32345126, "lit": 1736.5}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05758", "pd": "76H-05758", "tien": 26235236, "lit": 1409.1}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07222", "pd": "76H-07222", "tien": 28063328, "lit": 1495.5}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H02406", "pd": "76H-02406", "tien": 27684855, "lit": 1479.6}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06132", "pd": "76H-06132", "tien": 22321881, "lit": 1197.9}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06178", "pd": "76H-06178", "tien": 26569018, "lit": 1427.1}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04004", "pd": "76H-04004", "tien": 20317764, "lit": 1089.2}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03945", "pd": "76H-03945", "tien": 25388882, "lit": 1354.4}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06131", "pd": "76H-06131", "tien": 29812258, "lit": 1599.4}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06059", "pd": "76H-06059", "tien": 30075315, "lit": 1643.7}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04095", "pd": "76H-04095", "tien": 28638867, "lit": 1525.4}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03954", "pd": "76H-03954", "tien": 27330812, "lit": 1465.8}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03967", "pd": "76H-03967", "tien": 23429697, "lit": 1255.8}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06117", "pd": "76H-06117", "tien": 28091132, "lit": 1495.8}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05853", "pd": "76H-05853", "tien": 34130905, "lit": 1814.2}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04042", "pd": "76H-04042", "tien": 23070310, "lit": 1237.3}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05841", "pd": "76H-05841", "tien": 19083455, "lit": 1022.0}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76G00685", "pd": "76G-00685", "tien": 30136129, "lit": 1610.6}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76G00488", "pd": "76G-00488", "tien": 21370853, "lit": 1144.4}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04052", "pd": "76H-04052", "tien": 21970284, "lit": 1179.6}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07250", "pd": "76H-07250", "tien": 26575350, "lit": 1418.2}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "50H45164", "pd": "50H-45164", "tien": 24660400, "lit": 1314.0}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07270", "pd": "76H-07270", "tien": 24217139, "lit": 1289.7}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "50H45112", "pd": "50H-45112", "tien": 23527749, "lit": 1262.6}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04201", "pd": "76H-04201", "tien": 20552750, "lit": 1100.7}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07230", "pd": "76H-07230", "tien": 4900000, "lit": 263.5}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H05723", "pd": "76H-05723", "tien": 2200330, "lit": 116.4}, {"m": 2, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H04073", "pd": "76H-04073", "tien": 900016, "lit": 48.6}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05853", "pd": "76H-05853", "tien": 23889337, "lit": 1193.0}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76G00685", "pd": "76G-00685", "tien": 165787736, "lit": 5717.6}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03954", "pd": "76H-03954", "tien": 78814255, "lit": 3012.1}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06178", "pd": "76H-06178", "tien": 139748893, "lit": 5252.1}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05841", "pd": "76H-05841", "tien": 20101753, "lit": 1043.2}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04042", "pd": "76H-04042", "tien": 118435156, "lit": 3804.9}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04004", "pd": "76H-04004", "tien": 127666582, "lit": 4468.3}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06132", "pd": "76H-06132", "tien": 189945703, "lit": 6518.4}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05758", "pd": "76H-05758", "tien": 21910102, "lit": 1137.0}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "0", "pd": 0, "tien": 202250732, "lit": 6972.7}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03967", "pd": "76H-03967", "tien": 129964131, "lit": 4688.8}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06127", "pd": "76H-06127", "tien": 188209444, "lit": 6574.0}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06059", "pd": "76H-06059", "tien": 157146434, "lit": 5380.1}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06117", "pd": "76H-06117", "tien": 51063637, "lit": 2188.3}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03945", "pd": "76H-03945", "tien": 119730766, "lit": 4180.3}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04095", "pd": "76H-04095", "tien": 120245939, "lit": 4246.9}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76G00488", "pd": "76G-00488", "tien": 106974746, "lit": 3725.8}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H02406", "pd": "76H-02406", "tien": 183768470, "lit": 6301.5}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07222", "pd": "76H-07222", "tien": 50947079, "lit": 2094.3}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06131", "pd": "76H-06131", "tien": 132876503, "lit": 4622.2}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "50H45112", "pd": "50H-45112", "tien": 124972000, "lit": 4382.2}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "50H45164", "pd": "50H-45164", "tien": 100403796, "lit": 3505.7}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06221", "pd": "76H-06221", "tien": 11658215, "lit": 605.0}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06150", "pd": "76H-06150", "tien": 19949399, "lit": 827.0}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07230", "pd": "76H-07230", "tien": 75120484, "lit": 2526.5}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07250", "pd": "76H-07250", "tien": 162567472, "lit": 5539.1}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07270", "pd": "76H-07270", "tien": 96567488, "lit": 3365.1}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H05723", "pd": "76H-05723", "tien": 7250865, "lit": 271.4}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H03645", "pd": "76H-03645", "tien": 12091101, "lit": 410.7}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03947", "pd": "76H-03947", "tien": 95626092, "lit": 3378.3}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50H48959", "pd": "50H-48959", "tien": 16100120, "lit": 546.6}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H04073", "pd": "76H-04073", "tien": 670037, "lit": 34.8}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76G00017", "pd": "76G-00017", "tien": 3631809, "lit": 120.4}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76G00001", "pd": "76G-00001", "tien": 5781700, "lit": 198.0}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04052", "pd": "76H-04052", "tien": 81906536, "lit": 2717.1}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H04522", "pd": "76H-04522", "tien": 1000000, "lit": 51.9}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50F04650", "pd": "50F-04650", "tien": 2500000, "lit": 86.1}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50F04680", "pd": "50F-04680", "tien": 5000000, "lit": 152.5}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H04408", "pd": "76H-04408", "tien": 2850119, "lit": 91.9}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76G00016", "pd": "76G-00016", "tien": 1150000, "lit": 37.3}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "51B29852", "pd": "51B-29852", "tien": 2278450, "lit": 73.0}, {"m": 3, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04201", "pd": "76H-04201", "tien": 8634124, "lit": 258.4}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76G00685", "pd": "76G-00685", "tien": 228917009, "lit": 6883.7}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76G00488", "pd": "76G-00488", "tien": 104387305, "lit": 3213.3}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06131", "pd": "76H-06131", "tien": 103516799, "lit": 3371.8}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H02406", "pd": "76H-02406", "tien": 197211440, "lit": 5909.4}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06127", "pd": "76H-06127", "tien": 221948897, "lit": 6645.9}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07250", "pd": "76H-07250", "tien": 206902829, "lit": 6191.0}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "0", "pd": 0, "tien": 223905775, "lit": 6747.0}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03954", "pd": "76H-03954", "tien": 109627783, "lit": 3648.4}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "50H45112", "pd": "50H-45112", "tien": 75866925, "lit": 2041.5}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04042", "pd": "76H-04042", "tien": 97274121, "lit": 3242.7}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06059", "pd": "76H-06059", "tien": 206441096, "lit": 6184.7}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07270", "pd": "76H-07270", "tien": 137398633, "lit": 4023.2}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03945", "pd": "76H-03945", "tien": 152282103, "lit": 4611.9}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06132", "pd": "76H-06132", "tien": 165175188, "lit": 5192.7}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76G00017", "pd": "76G-00017", "tien": 4240510, "lit": 121.0}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H03645", "pd": "76H-03645", "tien": 15102710, "lit": 457.7}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H05723", "pd": "76H-05723", "tien": 7150803, "lit": 232.3}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04095", "pd": "76H-04095", "tien": 93417836, "lit": 2926.2}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03967", "pd": "76H-03967", "tien": 113607324, "lit": 3385.5}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76G00001", "pd": "76G-00001", "tien": 5628190, "lit": 171.4}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03947", "pd": "76H-03947", "tien": 99739380, "lit": 3180.6}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04052", "pd": "76H-04052", "tien": 103832852, "lit": 3244.1}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50H48959", "pd": "50H-48959", "tien": 15800000, "lit": 462.7}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04004", "pd": "76H-04004", "tien": 75190608, "lit": 2493.2}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07230", "pd": "76H-07230", "tien": 90711802, "lit": 2805.5}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "50H45164", "pd": "50H-45164", "tien": 9905202, "lit": 221.2}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76G00016", "pd": "76G-00016", "tien": 3600006, "lit": 108.2}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H04408", "pd": "76H-04408", "tien": 3700000, "lit": 107.1}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50F04650", "pd": "50F-04650", "tien": 2000000, "lit": 64.4}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06150", "pd": "76H-06150", "tien": 26302907, "lit": 959.4}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05758", "pd": "76H-05758", "tien": 30012275, "lit": 1102.5}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04201", "pd": "76H-04201", "tien": 32630888, "lit": 1207.6}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76F01004", "pd": "76F-01004", "tien": 30650206, "lit": 1133.5}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76F01009", "pd": "76F-01009", "tien": 34985338, "lit": 1299.2}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50F04680", "pd": "50F-04680", "tien": 2200000, "lit": 80.4}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06117", "pd": "76H-06117", "tien": 23450666, "lit": 864.2}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05853", "pd": "76H-05853", "tien": 21930417, "lit": 806.8}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06178", "pd": "76H-06178", "tien": 37023376, "lit": 1369.0}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06221", "pd": "76H-06221", "tien": 22416948, "lit": 823.0}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05841", "pd": "76H-05841", "tien": 33229061, "lit": 1227.0}, {"m": 4, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07222", "pd": "76H-07222", "tien": 31290388, "lit": 1156.1}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76G00685", "pd": "76G-00685", "tien": 185174406, "lit": 2595.8}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76F01004", "pd": "76F-01004", "tien": 92434370, "lit": 1199.5}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06132", "pd": "76H-06132", "tien": 167276612, "lit": 2304.0}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04095", "pd": "76H-04095", "tien": 96227711, "lit": 1107.3}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07250", "pd": "76H-07250", "tien": 186959852, "lit": 2731.7}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76F01009", "pd": "76F-01009", "tien": 132590142, "lit": 2084.9}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06059", "pd": "76H-06059", "tien": 161523780, "lit": 2427.0}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "0", "pd": 0, "tien": 53617438, "lit": 1915.5}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03945", "pd": "76H-03945", "tien": 150119660, "lit": 2306.7}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03954", "pd": "76H-03954", "tien": 51163073, "lit": 1413.1}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03967", "pd": "76H-03967", "tien": 129579395, "lit": 2136.0}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06127", "pd": "76H-06127", "tien": 161435492, "lit": 2368.9}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06131", "pd": "76H-06131", "tien": 88254865, "lit": 1120.4}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05758", "pd": "76H-05758", "tien": 36130790, "lit": 1282.6}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04004", "pd": "76H-04004", "tien": 106826964, "lit": 1257.6}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04042", "pd": "76H-04042", "tien": 89362120, "lit": 2047.3}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03947", "pd": "76H-03947", "tien": 94698606, "lit": 1597.4}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50H48959", "pd": "50H-48959", "tien": 12100062, "lit": 212.8}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H02406", "pd": "76H-02406", "tien": 166121297, "lit": 2342.1}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76G00488", "pd": "76G-00488", "tien": 98326368, "lit": 1527.7}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07230", "pd": "76H-07230", "tien": 70859257, "lit": 1551.4}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07270", "pd": "76H-07270", "tien": 44583760, "lit": 699.7}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H05723", "pd": "76H-05723", "tien": 9911345, "lit": 174.0}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50F04650", "pd": "50F-04650", "tien": 5300000, "lit": 71.0}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04052", "pd": "76H-04052", "tien": 80999900, "lit": 906.7}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06150", "pd": "76H-06150", "tien": 38480720, "lit": 1121.1}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05841", "pd": "76H-05841", "tien": 25070673, "lit": 641.8}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06178", "pd": "76H-06178", "tien": 42588920, "lit": 763.9}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05853", "pd": "76H-05853", "tien": 27370826, "lit": 729.5}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04201", "pd": "76H-04201", "tien": 26858239, "lit": 671.6}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06117", "pd": "76H-06117", "tien": 17292541, "lit": 613.2}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "51B29852", "pd": "51B-29852", "tien": 4444500, "lit": 84.0}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07222", "pd": "76H-07222", "tien": 24302372, "lit": 867.5}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H04408", "pd": "76H-04408", "tien": 3700534, "lit": 57.5}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76G00017", "pd": "76G-00017", "tien": 2891260, "lit": 69.5}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50H93808", "pd": "50H-93808", "tien": 1000000, "lit": 34.0}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06221", "pd": "76H-06221", "tien": 5900009, "lit": 209.4}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H03645", "pd": "76H-03645", "tien": 11683390, "lit": 120.1}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76G00016", "pd": "76G-00016", "tien": 2500031, "lit": 31.9}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76E00759", "pd": "76E-00759", "tien": 121579259, "lit": 700.2}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76G00001", "pd": "76G-00001", "tien": 4398890, "lit": 26.3}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50E18937", "pd": "50E-18937", "tien": 8400664, "lit": 0}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50E18773", "pd": "50E-18773", "tien": 4501312, "lit": 0}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50F04680", "pd": "50F-04680", "tien": 2500000, "lit": 0}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H01004", "pd": "76H-01004", "tien": 6092571, "lit": 0}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76F010.09", "pd": "76F-010.09", "tien": 6340171, "lit": 0}, {"m": 5, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H03122", "pd": "76H-03122", "tien": 6800379, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06132", "pd": "76H-06132", "tien": 143105232, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76F01004", "pd": "76F-01004", "tien": 139614057, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03947", "pd": "76H-03947", "tien": 108868293, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76G00488", "pd": "76G-00488", "tien": 133480731, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76F01009", "pd": "76F-01009", "tien": 141355620, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04095", "pd": "76H-04095", "tien": 119201661, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06059", "pd": "76H-06059", "tien": 151877426, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04004", "pd": "76H-04004", "tien": 130581529, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06127", "pd": "76H-06127", "tien": 146834576, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07250", "pd": "76H-07250", "tien": 144452855, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50E18937", "pd": "50E-18937", "tien": 12852564, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04042", "pd": "76H-04042", "tien": 115425709, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06131", "pd": "76H-06131", "tien": 90557590, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07230", "pd": "76H-07230", "tien": 146985039, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H02406", "pd": "76H-02406", "tien": 148335809, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76G00685", "pd": "76G-00685", "tien": 149031340, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76E00759", "pd": "76E-00759", "tien": 133563264, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07270", "pd": "76H-07270", "tien": 120955176, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03967", "pd": "76H-03967", "tien": 122537662, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04052", "pd": "76H-04052", "tien": 105732955, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H05723", "pd": "76H-05723", "tien": 13683759, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03945", "pd": "76H-03945", "tien": 137901893, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50H48959", "pd": "50H-48959", "tien": 14339180, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H04073", "pd": "76H-04073", "tien": 759994, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H03645", "pd": "76H-03645", "tien": 11292790, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06117", "pd": "76H-06117", "tien": 12862840, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05853", "pd": "76H-05853", "tien": 13268307, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05758", "pd": "76H-05758", "tien": 43610666, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76G00016", "pd": "76G-00016", "tien": 3004650, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H04458", "pd": "76H-04458", "tien": 6300765, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03954", "pd": "76H-03954", "tien": 113237410, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07222", "pd": "76H-07222", "tien": 64805434, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06178", "pd": "76H-06178", "tien": 129261738, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76G00001", "pd": "76G-00001", "tien": 1259520, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50F04650", "pd": "50F-04650", "tien": 3233620, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50E18773", "pd": "50E-18773", "tien": 5926022, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06221", "pd": "76H-06221", "tien": 6987282, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "51B29852", "pd": "51B-29852", "tien": 4003007, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "0", "pd": 0, "tien": 23900276, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04201", "pd": "76H-04201", "tien": 57412311, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06150", "pd": "76H-06150", "tien": 36448761, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H03945", "pd": "76H03945", "tien": 4560185, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50F04680", "pd": "50F-04680", "tien": 1500000, "lit": 0}, {"m": 6, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50H73752", "pd": "50H-73752", "tien": 5500067, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76E00759", "pd": "76E-00759", "tien": 82879572, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06131", "pd": "76H-06131", "tien": 95537162, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07270", "pd": "76H-07270", "tien": 124082993, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03945", "pd": "76H-03945", "tien": 131906775, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03954", "pd": "76H-03954", "tien": 118748105, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76G00685", "pd": "76G-00685", "tien": 153868170, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03967", "pd": "76H-03967", "tien": 118972184, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06127", "pd": "76H-06127", "tien": 146163890, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04095", "pd": "76H-04095", "tien": 131524722, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06132", "pd": "76H-06132", "tien": 146670291, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76G00488", "pd": "76G-00488", "tien": 133512412, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76F01009", "pd": "76F-01009", "tien": 120830934, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H02406", "pd": "76H-02406", "tien": 140036495, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50E18773", "pd": "50E-18773", "tien": 7202432, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76F01004", "pd": "76F-01004", "tien": 119688310, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07250", "pd": "76H-07250", "tien": 142514952, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04004", "pd": "76H-04004", "tien": 118101622, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07230", "pd": "76H-07230", "tien": 143192640, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50E18937", "pd": "50E-18937", "tien": 16463246, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H04408", "pd": "76H-04408", "tien": 3838958, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06059", "pd": "76H-06059", "tien": 138673226, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04052", "pd": "76H-04052", "tien": 93736490, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06178", "pd": "76H-06178", "tien": 159787801, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76G00016", "pd": "76G-00016", "tien": 1499650, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03947", "pd": "76H-03947", "tien": 84246117, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "51G85376", "pd": "51G-85376", "tien": 1000025, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H05723", "pd": "76H-05723", "tien": 12410647, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H03645", "pd": "76H-03645", "tien": 10415881, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04042", "pd": "76H-04042", "tien": 93587181, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50H48959", "pd": "50H-48959", "tien": 11200094, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76G00001", "pd": "76G-00001", "tien": 4901129, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04201", "pd": "76H-04201", "tien": 10270162, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50F04650", "pd": "50F-04650", "tien": 3500000, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "51B29852", "pd": "51B-29852", "tien": 1000000, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H08403", "pd": "76H-08403", "tien": 78338178, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05758", "pd": "76H-05758", "tien": 11570518, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H01009", "pd": "76H-01009", "tien": 5160389, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07222", "pd": "76H-07222", "tien": 10720828, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50F04680", "pd": "50F-04680", "tien": 3000000, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06117", "pd": "76H-06117", "tien": 5580429, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H05787", "pd": "76H-05787", "tien": 1410090, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H04073", "pd": "76H-04073", "tien": 218161, "lit": 0}, {"m": 7, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76G00017", "pd": "76G-00017", "tien": 221530, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76G00685", "pd": "76G-00685", "tien": 62305503, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76F01009", "pd": "76F-01009", "tien": 57353755, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07250", "pd": "76H-07250", "tien": 65128780, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03954", "pd": "76H-03954", "tien": 49091639, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03967", "pd": "76H-03967", "tien": 46669182, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76F01004", "pd": "76F-01004", "tien": 51780405, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06127", "pd": "76H-06127", "tien": 59373241, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04095", "pd": "76H-04095", "tien": 48385183, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H08403", "pd": "76H-08403", "tien": 49437216, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07270", "pd": "76H-07270", "tien": 51763818, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H02406", "pd": "76H-02406", "tien": 59316819, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07230", "pd": "76H-07230", "tien": 46028115, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06059", "pd": "76H-06059", "tien": 55161235, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06132", "pd": "76H-06132", "tien": 58821173, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H05758", "pd": "76H-05758", "tien": 12110251, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04004", "pd": "76H-04004", "tien": 51851119, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03945", "pd": "76H-03945", "tien": 57756317, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76G00488", "pd": "76G-00488", "tien": 59710568, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06178", "pd": "76H-06178", "tien": 57438802, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H07222", "pd": "76H-07222", "tien": 12467382, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04052", "pd": "76H-04052", "tien": 38147304, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H04042", "pd": "76H-04042", "tien": 50427941, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H06131", "pd": "76H-06131", "tien": 16457108, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H05723", "pd": "76H-05723", "tien": 5230213, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50E18937", "pd": "50E-18937", "tien": 5970344, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H03645", "pd": "76H-03645", "tien": 4900000, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50F04650", "pd": "50F-04650", "tien": 2500000, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE KH\u00c1CH TU\u1ea4N T\u00da", "p": "76H03947", "pd": "76H-03947", "tien": 34081812, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50H48959", "pd": "50H-48959", "tien": 3200000, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76G00001", "pd": "76G-00001", "tien": 2397865, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50H93808", "pd": "50H-93808", "tien": 1000000, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50E18773", "pd": "50E-18773", "tien": 2600154, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H04073", "pd": "76H-04073", "tien": 640038, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H04408", "pd": "76H-04408", "tien": 1000000, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "50F04680", "pd": "50F-04680", "tien": 1500000, "lit": 0}, {"m": 8, "pn": "CHI NH\u00c1NH", "lx": "XE TAI", "p": "76H06221", "pd": "76H06221", "tien": 3000000, "lit": 0}], "vetc": [{"m": 7, "pn": "C\u00d4NG TY", "p": "76H04692", "pd": "76H04692V", "tien": 44249882}, {"m": 7, "pn": "C\u00d4NG TY", "p": "76H03122", "pd": "76H03122V", "tien": 43155807}, {"m": 7, "pn": "C\u00d4NG TY", "p": "76H05856", "pd": "76H05856V", "tien": 8167784}, {"m": 7, "pn": "C\u00d4NG TY", "p": "76G00001", "pd": "76G00001V", "tien": 532000}, {"m": 7, "pn": "C\u00d4NG TY", "p": "76C07536", "pd": "76C07536V", "tien": 7512630}, {"m": 7, "pn": "C\u00d4NG TY", "p": "76C13716", "pd": "76C13716T", "tien": 232000}, {"m": 7, "pn": "C\u00d4NG TY", "p": "76H03529", "pd": "76H03529V", "tien": 11860862}, {"m": 7, "pn": "C\u00d4NG TY", "p": "76H05776", "pd": "76H05776V", "tien": 160000}, {"m": 7, "pn": "C\u00d4NG TY", "p": "76H04408", "pd": "76H04408V", "tien": 570000}, {"m": 7, "pn": "C\u00d4NG TY", "p": "76H04522", "pd": "76H04522V", "tien": 18360565}, {"m": 7, "pn": "C\u00d4NG TY", "p": "76C12055", "pd": "76C12055T", "tien": 118000}, {"m": 7, "pn": "C\u00d4NG TY", "p": "76B01647", "pd": "76B01647T", "tien": 400000}, {"m": 7, "pn": "C\u00d4NG TY", "p": "76H04458", "pd": "76H04458V", "tien": 52764323}, {"m": 7, "pn": "C\u00d4NG TY", "p": "76H06054", "pd": "76H06054V", "tien": 11102005}, {"m": 7, "pn": "C\u00d4NG TY", "p": "76H05753", "pd": "76H05753V", "tien": 43236245}, {"m": 7, "pn": "C\u00d4NG TY", "p": "76B01002", "pd": "76B01002T", "tien": 58000}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H08403", "pd": "76H08403V", "tien": 21231642}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H06131", "pd": "76H06131V", "tien": 14574092}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H06178", "pd": "76H06178V", "tien": 38315370}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H07222", "pd": "76H07222V", "tien": 2561180}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H07230", "pd": "76H07230V", "tien": 26901360}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76G00488", "pd": "76G00488V", "tien": 25117025}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H04042", "pd": "76H04042V", "tien": 13209232}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H07270", "pd": "76H07270V", "tien": 24963376}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H06127", "pd": "76H06127V", "tien": 39258452}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76F01009", "pd": "76F01009V", "tien": 24922155}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H04095", "pd": "76H04095V", "tien": 27850988}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H03945", "pd": "76H03945V", "tien": 22878065}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H03967", "pd": "76H03967V", "tien": 26189701}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76F01004", "pd": "76F01004V", "tien": 22692444}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H02406", "pd": "76H02406V", "tien": 36348734}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H03954", "pd": "76H03954V", "tien": 24586473}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H03947", "pd": "76H03947V", "tien": 7406068}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H07250", "pd": "76H07250V", "tien": 38102554}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H04052", "pd": "76H04052V", "tien": 6693000}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76G00685", "pd": "76G00685V", "tien": 39599273}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H04004", "pd": "76H04004V", "tien": 25580807}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H05758", "pd": "76H05758V", "tien": 3026572}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H06132", "pd": "76H06132V", "tien": 37888483}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H06059", "pd": "76H06059V", "tien": 38488229}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H06150", "pd": "76H06150V", "tien": 832254}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "50F04650", "pd": "50F04650V", "tien": 570000}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76G00016", "pd": "76G00016V", "tien": 420000}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H05723", "pd": "76H05723V", "tien": 58000}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H04201", "pd": "76H04201V", "tien": 2855757}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76E00759", "pd": "76E00759V", "tien": 24175576}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H03645", "pd": "76H03645V", "tien": 570000}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76G00017", "pd": "76G00017V", "tien": 420000}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "50H48959", "pd": "50H48959V", "tien": 652000}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "50F04680", "pd": "50F04680V", "tien": 570000}, {"m": 7, "pn": "CHI NH\u00c1NH", "p": "76H06117", "pd": "76H06117V", "tien": 1329907}]}
+;
+let DATA = FALLBACK_DATA;
+
+const MONTH_NAMES = {1:'T1',2:'T2',3:'T3',4:'T4',5:'T5',6:'T6',7:'T7',8:'T8',9:'T9',10:'T10',11:'T11',12:'T12'};
+
+function fmtVND(n){
+  if(n===null||n===undefined||isNaN(n)) return '0 đ';
+  return new Intl.NumberFormat('vi-VN').format(Math.round(n)) + ' đ';
+}
+function fmtVNDShort(n){
+  if(!n) return '0';
+  if(n>=1e9) return (n/1e9).toFixed(2).replace(/\.00$/,'') + ' tỷ';
+  if(n>=1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + ' tr';
+  return new Intl.NumberFormat('vi-VN').format(Math.round(n));
+}
+
+// ---------- Populate filters ----------
+const selThang = document.getElementById('f-thang');
+const selPN = document.getElementById('f-phannhom');
+const selLX = document.getElementById('f-loaixe');
+
+function fillSelect(sel, values, allLabel){
+  sel.innerHTML = '';
+  const optAll = document.createElement('option');
+  optAll.value = ''; optAll.textContent = allLabel;
+  sel.appendChild(optAll);
+  values.forEach(v=>{
+    const o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    sel.appendChild(o);
+  });
+}
+fillSelect(selThang, [1,2,3,4,5,6,7,8].map(m=>MONTH_NAMES[m]), 'Tất cả tháng');
+fillSelect(selPN, ['CÔNG TY','CHI NHÁNH'], 'Tất cả phân nhóm');
+fillSelect(selLX, ['XE TAI','XE KHÁCH TUẤN TÚ'], 'Tất cả loại xe');
+
+const monthLabelToNum = {};
+Object.keys(MONTH_NAMES).forEach(k=>monthLabelToNum[MONTH_NAMES[k]] = Number(k));
+
+// ---------- Charts (init empty, update later) ----------
+Chart.defaults.font.family = "'IBM Plex Sans', sans-serif";
+Chart.defaults.color = '#8B98A8';
+
+const monthCtx = document.getElementById('chart-month').getContext('2d');
+const monthChart = new Chart(monthCtx, {
+  type:'bar',
+  data:{
+    labels:[1,2,3,4,5,6,7,8].map(m=>MONTH_NAMES[m]),
+    datasets:[
+      {label:'Dầu', data:[], backgroundColor:'#E8A33D', borderRadius:4, maxBarThickness:34},
+      {label:'VETC', data:[], backgroundColor:'#3DBFB0', borderRadius:4, maxBarThickness:34}
+    ]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{
+      legend:{labels:{usePointStyle:true, boxWidth:8, padding:16, font:{family:"'IBM Plex Mono', monospace", size:11}}},
+      tooltip:{callbacks:{label:(ctx)=> ctx.dataset.label+': '+fmtVND(ctx.parsed.y)}}
+    },
+    scales:{
+      x:{grid:{display:false}, ticks:{font:{family:"'IBM Plex Mono', monospace", size:11}}},
+      y:{grid:{color:'#2A323D'}, ticks:{callback:(v)=>fmtVNDShort(v), font:{family:"'IBM Plex Mono', monospace", size:11}}}
+    }
+  }
+});
+
+const pieCtx = document.getElementById('chart-pie').getContext('2d');
+const pieChart = new Chart(pieCtx, {
+  type:'doughnut',
+  data:{
+    labels:['Dầu','VETC'],
+    datasets:[{data:[0,0], backgroundColor:['#E8A33D','#3DBFB0'], borderColor:'#1B2129', borderWidth:3}]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    cutout:'62%',
+    plugins:{
+      legend:{position:'bottom', labels:{usePointStyle:true, boxWidth:8, padding:16, font:{family:"'IBM Plex Mono', monospace", size:11}}},
+      tooltip:{callbacks:{label:(ctx)=> ctx.label+': '+fmtVND(ctx.parsed)}}
+    }
+  }
+});
+
+// ---------- Filtering & aggregation ----------
+function getFilters(){
+  return {
+    thang: selThang.value ? monthLabelToNum[selThang.value] : null,
+    pn: selPN.value || null,
+    lx: selLX.value || null
+  };
+}
+
+function applyFuel(f, ignoreMonth){
+  return DATA.fuel.filter(r=>{
+    if(!ignoreMonth && f.thang && r.m !== f.thang) return false;
+    if(f.pn && r.pn !== f.pn) return false;
+    if(f.lx && r.lx !== f.lx) return false;
+    return true;
+  });
+}
+function applyVetc(f, ignoreMonth){
+  return DATA.vetc.filter(r=>{
+    if(!ignoreMonth && f.thang && r.m !== f.thang) return false;
+    if(f.pn && r.pn !== f.pn) return false;
+    return true;
+  });
+}
+
+function render(){
+  const f = getFilters();
+
+  // KPIs
+  const fuelRows = applyFuel(f, false);
+  const vetcRows = applyVetc(f, false);
+  const totalDau = fuelRows.reduce((s,r)=>s+r.tien,0);
+  const totalLit = fuelRows.reduce((s,r)=>s+r.lit,0);
+  const totalVetc = vetcRows.reduce((s,r)=>s+r.tien,0);
+
+  document.getElementById('kpi-dau').textContent = fmtVNDShort(totalDau) + ' đ';
+  document.getElementById('kpi-dau-sub').textContent = new Intl.NumberFormat('vi-VN').format(Math.round(totalLit)) + ' lít';
+  document.getElementById('kpi-vetc').textContent = fmtVNDShort(totalVetc) + ' đ';
+  document.getElementById('kpi-vetc-sub').textContent = vetcRows.length + ' lượt xe qua trạm';
+  document.getElementById('kpi-total').textContent = fmtVNDShort(totalDau+totalVetc) + ' đ';
+
+  const plateSet = new Set();
+  fuelRows.forEach(r=>plateSet.add(r.p));
+  vetcRows.forEach(r=>plateSet.add(r.p));
+  document.getElementById('kpi-xe').textContent = plateSet.size;
+
+  // Monthly chart (ignore month filter, respect pn/lx)
+  const fuelAll = applyFuel(f, true);
+  const vetcAll = applyVetc(f, true);
+  const months = [1,2,3,4,5,6,7,8];
+  const dauByMonth = months.map(m=> fuelAll.filter(r=>r.m===m).reduce((s,r)=>s+r.tien,0));
+  const vetcByMonth = months.map(m=> vetcAll.filter(r=>r.m===m).reduce((s,r)=>s+r.tien,0));
+  monthChart.data.datasets[0].data = dauByMonth;
+  monthChart.data.datasets[1].data = vetcByMonth;
+  monthChart.update();
+
+  // Pie
+  pieChart.data.datasets[0].data = [totalDau, totalVetc];
+  pieChart.update();
+
+  // Top vehicles
+  const byPlate = {};
+  fuelRows.forEach(r=>{
+    byPlate[r.p] = byPlate[r.p] || {plate:r.pd, dau:0, vetc:0};
+    byPlate[r.p].dau += r.tien;
+    byPlate[r.p].plate = r.pd;
+  });
+  vetcRows.forEach(r=>{
+    byPlate[r.p] = byPlate[r.p] || {plate:r.pd, dau:0, vetc:0};
+    byPlate[r.p].vetc += r.tien;
+    if(!byPlate[r.p].plate) byPlate[r.p].plate = r.pd;
+  });
+  const arr = Object.values(byPlate).map(v=>({...v, total:v.dau+v.vetc}))
+    .sort((a,b)=>b.total-a.total).slice(0,10);
+  const maxTotal = arr.length ? arr[0].total : 1;
+
+  const tbody = document.getElementById('top-vehicle-body');
+  tbody.innerHTML = '';
+  arr.forEach((v,i)=>{
+    const tr = document.createElement('tr');
+    const pct = Math.max(6, Math.round((v.total/maxTotal)*100));
+    tr.innerHTML = `
+      <td><span class="rank">${i+1}</span></td>
+      <td>
+        <div class="bar-cell">
+          <span class="plate">${v.plate}</span>
+        </div>
+        <div class="mini-bar" style="width:${pct}%"></div>
+      </td>
+      <td class="num mono">${fmtVNDShort(v.dau)}</td>
+      <td class="num mono">${fmtVNDShort(v.vetc)}</td>
+      <td class="num mono" style="color:var(--amber);font-weight:600">${fmtVNDShort(v.total)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  if(arr.length===0){
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-faint);text-align:center;padding:20px;">Không có dữ liệu khớp bộ lọc</td></tr>';
+  }
+}
+
+[selThang, selPN, selLX].forEach(s=> s.addEventListener('change', render));
+document.getElementById('reset-btn').addEventListener('click', ()=>{
+  selThang.value=''; selPN.value=''; selLX.value='';
+  render();
+});
+
+function showStatus(msg, isError){
+  let el = document.getElementById('data-status');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'data-status';
+    el.style.cssText = 'font-family:"IBM Plex Mono",monospace;font-size:11px;text-align:center;margin:-10px 0 16px;color:' + (isError ? '#E2604F' : '#5B6675');
+    document.querySelector('.route-strip').insertAdjacentElement('afterend', el);
+  }
+  el.textContent = msg;
+}
+
+async function loadLiveData(){
+  if(!APPS_SCRIPT_URL){
+    showStatus('Đang xem dữ liệu mẫu (chưa nối Google Sheet — xem AppsScript_Code.gs)');
+    render();
+    return;
+  }
+  showStatus('Đang tải dữ liệu từ Google Sheet…');
+  try{
+    const res = await fetch(APPS_SCRIPT_URL);
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    DATA = { fuel: json.fuel || [], vetc: json.vetc || [] };
+    const t = json.updatedAt ? new Date(json.updatedAt).toLocaleString('vi-VN') : '';
+    showStatus('Dữ liệu trực tiếp từ Google Sheet' + (t ? ' · cập nhật lúc ' + t : ''));
+  }catch(err){
+    console.error(err);
+    DATA = FALLBACK_DATA;
+    showStatus('Không tải được Google Sheet, đang hiện dữ liệu mẫu (' + err.message + ')', true);
+  }
+  render();
+}
+
+loadLiveData();
+</script>
+</body>
+</html>
