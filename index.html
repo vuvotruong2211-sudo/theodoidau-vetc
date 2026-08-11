@@ -25,6 +25,55 @@
     --font-body: 'IBM Plex Sans', sans-serif;
     --font-mono: 'IBM Plex Mono', monospace;
   }
+  /* Sáng — tối giản, nền trắng dễ đọc ban ngày */
+  html[data-theme="light"]{
+    --bg: #F7FAF1;
+    --bg-panel: #FFFFFF;
+    --bg-panel-2: #EEF4E4;
+    --line: #D7E3C8;
+    --text: #1C2814;
+    --text-dim: #56663F;
+    --text-faint: #85936E;
+    --amber: #B8860B;
+    --amber-dim: #FBF0C7;
+    --teal: #2F8F1E;
+    --teal-dim: #DCEFD3;
+    --danger: #C6402F;
+  }
+  /* Tối sang trọng — xanh navy đậm, nhấn vàng đồng */
+  html[data-theme="navy"]{
+    --bg: #0B1220;
+    --bg-panel: #121C30;
+    --bg-panel-2: #182640;
+    --line: #2A3B5C;
+    --text: #EAEEF7;
+    --text-dim: #93A2C2;
+    --text-faint: #5B6A8C;
+    --amber: #D9A441;
+    --amber-dim: #3D3218;
+    --teal: #4FA6D9;
+    --teal-dim: #163244;
+    --danger: #E2604F;
+  }
+  /* Hiện đại — xám than tối giản, nhấn cam */
+  html[data-theme="mono"]{
+    --bg: #131313;
+    --bg-panel: #1C1C1C;
+    --bg-panel-2: #242424;
+    --line: #363636;
+    --text: #F2F2F0;
+    --text-dim: #A3A39C;
+    --text-faint: #6B6B65;
+    --amber: #F2994A;
+    --amber-dim: #3D2A18;
+    --teal: #7FB8A8;
+    --teal-dim: #22332D;
+    --danger: #E2604F;
+  }
+  html[data-theme]{ transition: background-color .2s ease; }
+  html[data-theme] body, html[data-theme] .panel, html[data-theme] .kpi, html[data-theme] .filters, html[data-theme] select{
+    transition: background-color .2s ease, color .2s ease, border-color .2s ease;
+  }
   *{box-sizing:border-box;}
   body{
     margin:0;
@@ -135,6 +184,20 @@
     margin-left:auto;
   }
   .filters .reset:hover{border-color:var(--text-dim);color:var(--text);}
+  .filters .theme-select{
+    align-self:flex-end;
+    background:var(--bg-panel-2);
+    border:1px solid var(--line);
+    color:var(--text);
+    font-family:var(--font-body);
+    font-weight:500;
+    font-size:13px;
+    padding:8px 10px;
+    border-radius:6px;
+    cursor:pointer;
+    min-width:150px;
+  }
+  .filters .theme-select:focus{outline:2px solid var(--amber);outline-offset:1px;}
 
   /* ---------- KPI cards ---------- */
   .kpi-grid{
@@ -284,6 +347,12 @@
       <select id="f-cuahang"></select>
     </div>
     <button class="reset" id="reset-btn">↺ Xoá lọc</button>
+    <select class="theme-select" id="theme-select">
+      <option value="dark">Giao diện: Tối (mặc định)</option>
+      <option value="light">Giao diện: Sáng tối giản</option>
+      <option value="navy">Giao diện: Tối sang trọng</option>
+      <option value="mono">Giao diện: Hiện đại</option>
+    </select>
   </div>
 
   <div class="kpi-grid">
@@ -309,10 +378,29 @@
     </div>
   </div>
 
-  <div class="panel">
-    <h2>Chi phí theo tháng</h2>
-    <p class="p-sub">Toàn bộ 12 tháng — không áp bộ lọc Tháng, để so sánh xu hướng cả năm</p>
-    <div class="chart-box"><canvas id="chart-month"></canvas></div>
+  <div class="grid-2">
+    <div class="panel">
+      <h2 style="color:var(--amber)">Dầu — theo tháng</h2>
+      <p class="p-sub">Toàn bộ 12 tháng, không áp bộ lọc Tháng</p>
+      <div class="chart-box small"><canvas id="chart-month-dau"></canvas></div>
+      <table style="margin-top:14px">
+        <thead>
+          <tr><th>Tháng</th><th class="num">Chi phí</th><th class="num">Số lít</th></tr>
+        </thead>
+        <tbody id="month-table-dau"></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h2 style="color:var(--teal)">VETC — theo tháng</h2>
+      <p class="p-sub">Toàn bộ 12 tháng, không áp bộ lọc Tháng</p>
+      <div class="chart-box small"><canvas id="chart-month-vetc"></canvas></div>
+      <table style="margin-top:14px">
+        <thead>
+          <tr><th>Tháng</th><th class="num">Chi phí</th><th class="num">Số lượt qua trạm</th></tr>
+        </thead>
+        <tbody id="month-table-vetc"></tbody>
+      </table>
+    </div>
   </div>
 
   <div class="grid-2">
@@ -347,6 +435,23 @@
 </div>
 
 <script>
+// ---------- Chọn giao diện (chỉ đổi màu nền/chữ qua CSS, không đụng biểu đồ) ----------
+// Đặt ngay đầu script để áp theme trước khi trang vẽ, tránh nháy sai màu.
+(function(){
+  const savedTheme = localStorage.getItem('dashboard-theme-v2') || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  window.addEventListener('DOMContentLoaded', function(){
+    const themeSelect = document.getElementById('theme-select');
+    if(!themeSelect) return;
+    themeSelect.value = savedTheme;
+    themeSelect.addEventListener('change', function(){
+      const mode = themeSelect.value;
+      document.documentElement.setAttribute('data-theme', mode);
+      localStorage.setItem('dashboard-theme-v2', mode);
+    });
+  });
+})();
+
 // ============================================================
 // DÁN URL WEB APP APPS SCRIPT VÀO ĐÂY SAU KHI DEPLOY (xem file
 // AppsScript_Code.gs để biết cách deploy). Để trống '' thì dashboard
@@ -408,28 +513,29 @@ Object.keys(MONTH_NAMES).forEach(k=>monthLabelToNum[MONTH_NAMES[k]] = Number(k))
 Chart.defaults.font.family = "'IBM Plex Sans', sans-serif";
 Chart.defaults.color = '#8B98A8';
 
-const monthCtx = document.getElementById('chart-month').getContext('2d');
-const monthChart = new Chart(monthCtx, {
-  type:'bar',
-  data:{
-    labels:[1,2,3,4,5,6,7,8].map(m=>MONTH_NAMES[m]),
-    datasets:[
-      {label:'Dầu', data:[], backgroundColor:'#FFDF00', borderRadius:4, maxBarThickness:34},
-      {label:'VETC', data:[], backgroundColor:'#6EBE47', borderRadius:4, maxBarThickness:34}
-    ]
-  },
-  options:{
-    responsive:true, maintainAspectRatio:false,
-    plugins:{
-      legend:{labels:{usePointStyle:true, boxWidth:8, padding:16, font:{family:"'IBM Plex Mono', monospace", size:11}}},
-      tooltip:{callbacks:{label:(ctx)=> ctx.dataset.label+': '+fmtVND(ctx.parsed.y)}}
+function makeMonthChart(canvasId, color){
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  return new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels:[1,2,3,4,5,6,7,8].map(m=>MONTH_NAMES[m]),
+      datasets:[{data:[], backgroundColor:color, borderRadius:4, maxBarThickness:34}]
     },
-    scales:{
-      x:{grid:{display:false}, ticks:{font:{family:"'IBM Plex Mono', monospace", size:11}}},
-      y:{grid:{color:'#2A323D'}, ticks:{callback:(v)=>fmtVNDShort(v), font:{family:"'IBM Plex Mono', monospace", size:11}}}
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:(ctx)=> fmtVND(ctx.parsed.y)}}
+      },
+      scales:{
+        x:{grid:{display:false}, ticks:{font:{family:"'IBM Plex Mono', monospace", size:11}}},
+        y:{grid:{color:'#2A323D'}, ticks:{callback:(v)=>fmtVNDShort(v), font:{family:"'IBM Plex Mono', monospace", size:11}}}
+      }
     }
-  }
-});
+  });
+}
+const monthChartDau = makeMonthChart('chart-month-dau', '#FFDF00');
+const monthChartVetc = makeMonthChart('chart-month-vetc', '#6EBE47');
 
 const pieCtx = document.getElementById('chart-pie').getContext('2d');
 const pieChart = new Chart(pieCtx, {
@@ -520,15 +626,29 @@ function render(){
   vetcRows.forEach(r=>plateSet.add(r.p));
   document.getElementById('kpi-xe').textContent = plateSet.size;
 
-  // Monthly chart (ignore month filter, respect pn/lx)
+  // Biểu đồ tháng (ignore month filter, respect pn/lx/cửa hàng)
   const fuelAll = applyFuel(f, true);
   const vetcAll = applyVetc(f, true);
   const months = [1,2,3,4,5,6,7,8];
   const dauByMonth = months.map(m=> fuelAll.filter(r=>r.m===m).reduce((s,r)=>s+r.tien,0));
+  const litByMonth = months.map(m=> fuelAll.filter(r=>r.m===m).reduce((s,r)=>s+r.lit,0));
   const vetcByMonth = months.map(m=> vetcAll.filter(r=>r.m===m).reduce((s,r)=>s+r.tien,0));
-  monthChart.data.datasets[0].data = dauByMonth;
-  monthChart.data.datasets[1].data = vetcByMonth;
-  monthChart.update();
+  const cntByMonth = months.map(m=> vetcAll.filter(r=>r.m===m).length);
+
+  monthChartDau.data.datasets[0].data = dauByMonth;
+  monthChartDau.update();
+  monthChartVetc.data.datasets[0].data = vetcByMonth;
+  monthChartVetc.update();
+
+  const tbDau = document.getElementById('month-table-dau');
+  tbDau.innerHTML = months.map((m,i)=>`
+    <tr><td>${MONTH_NAMES[m]}</td><td class="num mono">${fmtVNDShort(dauByMonth[i])}</td><td class="num mono">${new Intl.NumberFormat('vi-VN').format(Math.round(litByMonth[i]))}</td></tr>
+  `).join('');
+
+  const tbVetc = document.getElementById('month-table-vetc');
+  tbVetc.innerHTML = months.map((m,i)=>`
+    <tr><td>${MONTH_NAMES[m]}</td><td class="num mono">${fmtVNDShort(vetcByMonth[i])}</td><td class="num mono">${cntByMonth[i]}</td></tr>
+  `).join('');
 
   // Pie
   pieChart.data.datasets[0].data = [totalDau, totalVetc];
