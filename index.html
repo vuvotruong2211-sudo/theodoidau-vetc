@@ -25,24 +25,6 @@
     --font-body: 'IBM Plex Sans', sans-serif;
     --font-mono: 'IBM Plex Mono', monospace;
   }
-  html[data-theme="light"]{
-    --bg: #F7FAF1;
-    --bg-panel: #FFFFFF;
-    --bg-panel-2: #EEF4E4;
-    --line: #D7E3C8;
-    --text: #1C2814;
-    --text-dim: #56663F;
-    --text-faint: #85936E;
-    --amber: #B8860B;
-    --amber-dim: #FBF0C7;
-    --teal: #2F8F1E;
-    --teal-dim: #DCEFD3;
-    --danger: #C6402F;
-  }
-  html[data-theme="light"] .kpi.total::before{background:var(--text-dim);}
-  html[data-theme="light"] table thead th{color:var(--text-faint);}
-  html[data-theme="light"] .brand-logo{box-shadow:0 0 0 2px var(--line), 0 1px 4px rgba(0,0,0,.12);}
-  body, .panel, .kpi, .filters, select, .reset, .theme-toggle{transition:background-color .25s ease, color .25s ease, border-color .25s ease;}
   *{box-sizing:border-box;}
   body{
     margin:0;
@@ -153,19 +135,6 @@
     margin-left:auto;
   }
   .filters .reset:hover{border-color:var(--text-dim);color:var(--text);}
-  .theme-toggle{
-    align-self:flex-end;
-    background:transparent;
-    border:1px solid var(--line);
-    color:var(--text-dim);
-    font-family:var(--font-mono);
-    font-size:11px;
-    padding:8px 14px;
-    border-radius:6px;
-    cursor:pointer;
-    white-space:nowrap;
-  }
-  .theme-toggle:hover{border-color:var(--text-dim);color:var(--text);}
 
   /* ---------- KPI cards ---------- */
   .kpi-grid{
@@ -315,7 +284,6 @@
       <select id="f-cuahang"></select>
     </div>
     <button class="reset" id="reset-btn">↺ Xoá lọc</button>
-    <button class="theme-toggle" id="theme-toggle-btn">☀ Chuyển sáng</button>
   </div>
 
   <div class="kpi-grid">
@@ -363,6 +331,12 @@
       <p class="p-sub">Dầu vs VETC</p>
       <div class="chart-box small"><canvas id="chart-pie"></canvas></div>
     </div>
+  </div>
+
+  <div class="panel">
+    <h2>So sánh Công ty vs Chi nhánh</h2>
+    <p class="p-sub">Bỏ qua bộ lọc Phân nhóm để luôn thấy cả 2 cột — vẫn áp Tháng/Loại xe/Cửa hàng đang chọn</p>
+    <div class="chart-box small"><canvas id="chart-nhom"></canvas></div>
   </div>
 
   <footer>
@@ -474,6 +448,30 @@ const pieChart = new Chart(pieCtx, {
   }
 });
 
+const nhomCtx = document.getElementById('chart-nhom').getContext('2d');
+const nhomChart = new Chart(nhomCtx, {
+  type:'bar',
+  data:{
+    labels:['CÔNG TY','CHI NHÁNH'],
+    datasets:[
+      {label:'Dầu', data:[0,0], backgroundColor:'#FFDF00', borderRadius:4, maxBarThickness:60},
+      {label:'VETC', data:[0,0], backgroundColor:'#6EBE47', borderRadius:4, maxBarThickness:60}
+    ]
+  },
+  options:{
+    indexAxis:'y',
+    responsive:true, maintainAspectRatio:false,
+    plugins:{
+      legend:{labels:{usePointStyle:true, boxWidth:8, padding:16, font:{family:"'IBM Plex Mono', monospace", size:11}}},
+      tooltip:{callbacks:{label:(ctx)=> ctx.dataset.label+': '+fmtVND(ctx.parsed.x)}}
+    },
+    scales:{
+      x:{grid:{color:'#2A323D'}, ticks:{callback:(v)=>fmtVNDShort(v), font:{family:"'IBM Plex Mono', monospace", size:11}}},
+      y:{grid:{display:false}, ticks:{font:{family:"'IBM Plex Mono', monospace", size:12}}}
+    }
+  }
+});
+
 // ---------- Filtering & aggregation ----------
 function getFilters(){
   return {
@@ -484,19 +482,19 @@ function getFilters(){
   };
 }
 
-function applyFuel(f, ignoreMonth){
+function applyFuel(f, ignoreMonth, ignorePn){
   return DATA.fuel.filter(r=>{
     if(!ignoreMonth && f.thang && r.m !== f.thang) return false;
-    if(f.pn && r.pn !== f.pn) return false;
+    if(!ignorePn && f.pn && r.pn !== f.pn) return false;
     if(f.lx && r.lx !== f.lx) return false;
     if(f.ch && r.cs !== f.ch) return false;
     return true;
   });
 }
-function applyVetc(f, ignoreMonth){
+function applyVetc(f, ignoreMonth, ignorePn){
   return DATA.vetc.filter(r=>{
     if(!ignoreMonth && f.thang && r.m !== f.thang) return false;
-    if(f.pn && r.pn !== f.pn) return false;
+    if(!ignorePn && f.pn && r.pn !== f.pn) return false;
     return true;
   });
 }
@@ -535,6 +533,16 @@ function render(){
   // Pie
   pieChart.data.datasets[0].data = [totalDau, totalVetc];
   pieChart.update();
+
+  // So sánh CÔNG TY vs CHI NHÁNH — bỏ qua bộ lọc Phân nhóm, giữ Tháng/Loại xe/Cửa hàng
+  const fuelByNhom = applyFuel(f, false, true);
+  const vetcByNhom = applyVetc(f, false, true);
+  const nhomLabels = ['CÔNG TY','CHI NHÁNH'];
+  const dauByNhom = nhomLabels.map(nh => fuelByNhom.filter(r=>r.pn===nh).reduce((s,r)=>s+r.tien,0));
+  const vetcByNhomArr = nhomLabels.map(nh => vetcByNhom.filter(r=>r.pn===nh).reduce((s,r)=>s+r.tien,0));
+  nhomChart.data.datasets[0].data = dauByNhom;
+  nhomChart.data.datasets[1].data = vetcByNhomArr;
+  nhomChart.update();
 
   // Top vehicles
   const byPlate = {};
@@ -627,45 +635,6 @@ async function loadLiveData(){
 }
 
 loadLiveData();
-
-// ---------- Theme toggle (Sáng / Tối) ----------
-const themeBtn = document.getElementById('theme-toggle-btn');
-const htmlEl = document.documentElement;
-
-function cssVar(name){
-  return getComputedStyle(htmlEl).getPropertyValue(name).trim();
-}
-
-function applyChartTheme(){
-  const dim = cssVar('--text-dim');
-  const line = cssVar('--line');
-  const panel = cssVar('--bg-panel');
-  Chart.defaults.color = dim;
-  monthChart.options.scales.x.ticks.color = dim;
-  monthChart.options.scales.y.ticks.color = dim;
-  monthChart.options.scales.y.grid.color = line;
-  monthChart.options.plugins.legend.labels.color = dim;
-  monthChart.update();
-  pieChart.data.datasets[0].borderColor = panel;
-  pieChart.options.plugins.legend.labels.color = dim;
-  pieChart.update();
-}
-
-function setTheme(mode){
-  htmlEl.setAttribute('data-theme', mode);
-  localStorage.setItem('dashboard-theme', mode);
-  themeBtn.textContent = mode === 'light' ? '● Chuyển tối' : '☀ Chuyển sáng';
-  // đợi 1 tick để CSS variables áp dụng xong rồi mới đọc màu mới cho Chart.js
-  requestAnimationFrame(applyChartTheme);
-}
-
-const savedTheme = localStorage.getItem('dashboard-theme') || 'dark';
-setTheme(savedTheme);
-
-themeBtn.addEventListener('click', ()=>{
-  const current = htmlEl.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-  setTheme(current);
-});
 </script>
 </body>
 </html>
