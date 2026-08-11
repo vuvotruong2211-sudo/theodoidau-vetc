@@ -394,6 +394,10 @@ function fmtVNDShort(n){
   return new Intl.NumberFormat('vi-VN').format(Math.round(n));
 }
 
+const MONTH_NAMES = {1:'T1',2:'T2',3:'T3',4:'T4',5:'T5',6:'T6',7:'T7',8:'T8',9:'T9',10:'T10',11:'T11',12:'T12'};
+
+let DATA = FALLBACK_DATA;
+
 // ---------- Populate filters ----------
 const selThang = document.getElementById('f-thang');
 const selPN = document.getElementById('f-phannhom');
