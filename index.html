@@ -346,6 +346,10 @@
       <label for="f-cuahang">Cửa hàng đổ dầu</label>
       <select id="f-cuahang"></select>
     </div>
+    <div class="fgroup">
+      <label for="f-bienso">Biển số xe</label>
+      <select id="f-bienso"></select>
+    </div>
     <button class="reset" id="reset-btn">↺ Xoá lọc</button>
     <select class="theme-select" id="theme-select">
       <option value="dark">Giao diện: Tối (mặc định)</option>
@@ -482,6 +486,7 @@ const selThang = document.getElementById('f-thang');
 const selPN = document.getElementById('f-phannhom');
 const selLX = document.getElementById('f-loaixe');
 const selCH = document.getElementById('f-cuahang');
+const selBS = document.getElementById('f-bienso');
 
 function fillSelect(sel, values, allLabel){
   sel.innerHTML = '';
@@ -505,6 +510,25 @@ function populateStoreFilter(){
   if(stores.includes(current)) selCH.value = current;
 }
 populateStoreFilter();
+
+function populatePlateFilter(){
+  const map = {};
+  DATA.fuel.forEach(r=>{ if(r.p) map[r.p] = r.pd || r.p; });
+  DATA.vetc.forEach(r=>{ if(r.p) map[r.p] = map[r.p] || r.pd || r.p; });
+  const plates = Object.keys(map).sort((a,b)=> (map[a]||'').localeCompare(map[b]||''));
+  const current = selBS.value;
+  selBS.innerHTML = '';
+  const optAll = document.createElement('option');
+  optAll.value=''; optAll.textContent='Tất cả biển số';
+  selBS.appendChild(optAll);
+  plates.forEach(p=>{
+    const o = document.createElement('option');
+    o.value = p; o.textContent = map[p];
+    selBS.appendChild(o);
+  });
+  if(plates.includes(current)) selBS.value = current;
+}
+populatePlateFilter();
 
 const monthLabelToNum = {};
 Object.keys(MONTH_NAMES).forEach(k=>monthLabelToNum[MONTH_NAMES[k]] = Number(k));
@@ -584,7 +608,8 @@ function getFilters(){
     thang: selThang.value ? monthLabelToNum[selThang.value] : null,
     pn: selPN.value || null,
     lx: selLX.value || null,
-    ch: selCH.value || null
+    ch: selCH.value || null,
+    bs: selBS.value || null
   };
 }
 
@@ -594,6 +619,7 @@ function applyFuel(f, ignoreMonth, ignorePn){
     if(!ignorePn && f.pn && r.pn !== f.pn) return false;
     if(f.lx && r.lx !== f.lx) return false;
     if(f.ch && r.cs !== f.ch) return false;
+    if(f.bs && r.p !== f.bs) return false;
     return true;
   });
 }
@@ -601,6 +627,7 @@ function applyVetc(f, ignoreMonth, ignorePn){
   return DATA.vetc.filter(r=>{
     if(!ignoreMonth && f.thang && r.m !== f.thang) return false;
     if(!ignorePn && f.pn && r.pn !== f.pn) return false;
+    if(f.bs && r.p !== f.bs) return false;
     return true;
   });
 }
@@ -704,9 +731,9 @@ function render(){
   }
 }
 
-[selThang, selPN, selLX, selCH].forEach(s=> s.addEventListener('change', render));
+[selThang, selPN, selLX, selCH, selBS].forEach(s=> s.addEventListener('change', render));
 document.getElementById('reset-btn').addEventListener('click', ()=>{
-  selThang.value=''; selPN.value=''; selLX.value=''; selCH.value='';
+  selThang.value=''; selPN.value=''; selLX.value=''; selCH.value=''; selBS.value='';
   render();
 });
 
@@ -751,6 +778,7 @@ async function loadLiveData(){
     showStatus('Không tải được Google Sheet, đang hiện dữ liệu mẫu (' + err.message + ')', true);
   }
   populateStoreFilter();
+  populatePlateFilter();
   render();
 }
 
