@@ -303,6 +303,49 @@
   .chart-box{position:relative;height:300px;}
   .chart-box.small{height:260px;}
 
+  /* ---------- Chi tiết theo ngày ---------- */
+  [hidden]{display:none !important;}
+  .plate-hint{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    margin:-6px 0 18px;padding:10px 14px;border-radius:8px;
+    border:1px dashed var(--amber);color:var(--text-dim);
+    font-family:var(--font-mono);font-size:12px;
+  }
+  .plate-hint b{color:var(--amber);}
+  .d-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:6px;}
+  .d-nav{display:flex;gap:6px;flex-wrap:wrap;}
+  .d-nav button{
+    background:var(--bg-panel-2);border:1px solid var(--line);color:var(--text);
+    font-family:var(--font-mono);font-size:11px;padding:7px 12px;border-radius:6px;cursor:pointer;
+  }
+  .d-nav button:hover:not(:disabled){border-color:var(--amber);}
+  .d-nav button:disabled{opacity:.35;cursor:default;}
+  .d-legend{display:flex;gap:16px;font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin:0 0 8px;}
+  .d-legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:-1px;}
+  .d-scroll{overflow-x:auto;}
+  .d-table{min-width:640px;}
+  .d-table td{vertical-align:top;}
+  .d-table td.d-date{white-space:nowrap;font-family:var(--font-mono);}
+  .d-table td.d-date small{display:block;color:var(--text-faint);font-size:10.5px;margin-top:2px;}
+  .d-line{display:flex;justify-content:space-between;gap:12px;padding:2px 0;font-size:12.5px;}
+  .d-line span{color:var(--text-dim);}
+  .d-line span em{font-style:normal;color:var(--text);}
+  .d-line b{font-family:var(--font-mono);font-weight:600;white-space:nowrap;}
+  .d-table details summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:12px;font-size:12.5px;padding:2px 0;}
+  .d-table details summary::-webkit-details-marker{display:none;}
+  .d-table details summary span{color:var(--text-dim);}
+  .d-table details summary span::before{content:'▸ ';color:var(--text-faint);}
+  .d-table details[open] summary span::before{content:'▾ ';}
+  .d-table details summary b{font-family:var(--font-mono);font-weight:600;}
+  .d-table details .d-line{padding-left:14px;font-size:12px;}
+  .d-table td.d-total{font-family:var(--font-mono);font-weight:600;color:var(--amber);white-space:nowrap;}
+  .d-table tr.flash td{background:var(--bg-panel-2);transition:background .2s;}
+  .d-table tfoot td{padding:10px;border-top:2px solid var(--line);font-family:var(--font-mono);font-weight:600;}
+  .d-empty{color:var(--text-faint);text-align:center;padding:24px !important;}
+  .d-muted{color:var(--text-faint);}
+  .warn-tag{color:#E2604F;font-size:11px;}
+  #top-vehicle-body tr{cursor:pointer;}
+
   /* ---------- Table ---------- */
   table{width:100%;border-collapse:collapse;font-size:13px;}
   thead th{
@@ -413,16 +456,49 @@
       <div class="k-sub" id="kpi-total-sub">Dầu + VETC</div>
     </div>
     <div class="kpi" style="--kpi-accent:var(--text-dim)">
-      <div class="k-label">Số xe hoạt động</div>
+      <div class="k-label" id="kpi-xe-label">Số xe hoạt động</div>
       <div class="k-value" id="kpi-xe">—</div>
-      <div class="k-sub">biển số ghi nhận chi phí</div>
+      <div class="k-sub" id="kpi-xe-sub">biển số ghi nhận chi phí</div>
     </div>
   </div>
 
+  <div class="plate-hint" id="plate-hint" hidden></div>
+
+  <!-- Chế độ CHI TIẾT THEO NGÀY: bật khi đã chọn 1 biển số + 1 tháng -->
+  <div id="detail-view" hidden>
+    <div class="panel">
+      <div class="d-head">
+        <div>
+          <h2 id="d-title">Chi tiết theo ngày</h2>
+          <p class="p-sub" id="d-sub"></p>
+        </div>
+        <div class="d-nav">
+          <button type="button" id="d-prev">‹ Tháng trước</button>
+          <button type="button" id="d-next">Tháng sau ›</button>
+          <button type="button" id="d-exit">✕ Bỏ chọn xe</button>
+        </div>
+      </div>
+      <div class="d-legend"><span><i style="background:#FFDF00"></i>Dầu</span><span><i style="background:#6EBE47"></i>VETC</span><span class="d-muted">Bấm vào cột ngày để nhảy tới dòng nhật ký</span></div>
+      <div class="chart-box"><canvas id="chart-day"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Nhật ký chi phí từng ngày</h2>
+      <p class="p-sub" id="d-log-sub">Từng hoá đơn dầu và từng lượt qua trạm — bấm dòng VETC để xem chi tiết trạm</p>
+      <div class="d-scroll">
+        <table class="d-table">
+          <thead><tr><th style="width:92px">Ngày</th><th>Dầu</th><th>VETC</th><th class="num" style="width:120px">Tổng ngày</th></tr></thead>
+          <tbody id="d-body"></tbody>
+          <tfoot id="d-foot"></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="overview-view">
   <div class="grid-2">
     <div class="panel">
       <h2 style="color:var(--amber)">Dầu — theo tháng</h2>
-      <p class="p-sub">Tất cả tháng có dữ liệu, không áp bộ lọc Tháng</p>
+      <p class="p-sub">Tất cả tháng có dữ liệu · bấm 1 cột để chọn tháng</p>
       <div class="chart-box small"><canvas id="chart-month-dau"></canvas></div>
       <table style="margin-top:14px">
         <thead>
@@ -433,7 +509,7 @@
     </div>
     <div class="panel">
       <h2 style="color:var(--teal)">VETC — theo tháng</h2>
-      <p class="p-sub">Tất cả tháng có dữ liệu, không áp bộ lọc Tháng</p>
+      <p class="p-sub">Tất cả tháng có dữ liệu · bấm 1 cột để chọn tháng</p>
       <div class="chart-box small"><canvas id="chart-month-vetc"></canvas></div>
       <table style="margin-top:14px">
         <thead>
@@ -447,7 +523,7 @@
   <div class="grid-2">
     <div class="panel">
       <h2>Top 10 xe chi phí cao nhất</h2>
-      <p class="p-sub">Dầu + VETC, theo bộ lọc đang chọn</p>
+      <p class="p-sub">Dầu + VETC, theo bộ lọc đang chọn · bấm 1 xe để xem chi tiết</p>
       <table>
         <thead>
           <tr><th style="width:26px"></th><th>Biển số</th><th class="num">Dầu</th><th class="num">VETC</th><th class="num">Tổng</th></tr>
@@ -467,6 +543,7 @@
     <p class="p-sub">Bỏ qua bộ lọc Phân nhóm để luôn thấy cả 2 cột — vẫn áp Tháng/Loại xe/Cửa hàng đang chọn</p>
     <div class="chart-box small"><canvas id="chart-nhom"></canvas></div>
   </div>
+  </div><!-- /overview-view -->
 
   <footer>
     Nguồn: Google Sheet RAW_DAU &amp; RAW_VETC · Loại xe theo cột M, biển số theo cột P (RAW_DAU) · Biển số chuẩn hoá để khớp Dầu/VETC<br>
@@ -696,9 +773,17 @@ function makeMonthChart(canvasId, color){
     },
     options:{
       responsive:true, maintainAspectRatio:false,
+      // Bấm 1 cột tháng -> chọn tháng đó (nếu đang chọn xe thì vào luôn chi tiết theo ngày)
+      onClick:(evt, els)=>{
+        if(!els.length) return;
+        selThang.value = MONTH_NAMES[MONTHS[els[0].index]];
+        cascade(); render();
+        window.scrollTo({top: document.querySelector('.kpi-grid').offsetTop - 10, behavior:'smooth'});
+      },
+      onHover:(evt, els)=>{ evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
       plugins:{
         legend:{display:false},
-        tooltip:{callbacks:{label:(ctx)=> fmtVND(ctx.parsed.y)}}
+        tooltip:{callbacks:{label:(ctx)=> fmtVND(ctx.parsed.y), footer:()=> 'Bấm để xem tháng này'}}
       },
       scales:{
         x:{grid:{display:false}, ticks:{font:{family:"'IBM Plex Mono', monospace", size:11}}},
@@ -795,13 +880,29 @@ function render(){
   document.getElementById('kpi-dau').textContent = fmtVNDShort(totalDau) + ' đ';
   document.getElementById('kpi-dau-sub').textContent = new Intl.NumberFormat('vi-VN').format(Math.round(totalLit)) + ' lít';
   document.getElementById('kpi-vetc').textContent = fmtVNDShort(totalVetc) + ' đ';
-  document.getElementById('kpi-vetc-sub').textContent = vetcRows.length + ' lượt xe qua trạm';
+  const vetcCount = vetcRows.reduce((s,r)=>s+(r.n||1),0);
+  document.getElementById('kpi-vetc-sub').textContent = new Intl.NumberFormat('vi-VN').format(vetcCount) + ' lượt qua trạm';
   document.getElementById('kpi-total').textContent = fmtVNDShort(totalDau+totalVetc) + ' đ';
+  document.getElementById('kpi-total-sub').textContent = 'Dầu + VETC';
 
   const plateSet = new Set();
   fuelRows.forEach(r=>plateSet.add(r.p));
   vetcRows.forEach(r=>plateSet.add(r.p));
+  document.getElementById('kpi-xe-label').textContent = 'Số xe hoạt động';
   document.getElementById('kpi-xe').textContent = plateSet.size;
+  document.getElementById('kpi-xe-sub').textContent = 'biển số ghi nhận chi phí';
+
+  // ----- Chế độ hiển thị -----
+  const detailMode = !!(bsSelected && f.thang);
+  document.getElementById('detail-view').hidden = !detailMode;
+  document.getElementById('overview-view').hidden = detailMode;
+  const hint = document.getElementById('plate-hint');
+  if(bsSelected && !f.thang){
+    const x = PLATES.find(x=>x.p===bsSelected);
+    hint.innerHTML = 'Đang xem xe <b>' + (x ? x.pd : bsSelected) + '</b> theo tháng → chọn Tháng hoặc bấm 1 cột tháng bên dưới để xem <b>chi tiết từng ngày</b>';
+    hint.hidden = false;
+  } else hint.hidden = true;
+  if(detailMode){ renderDetail(f, totalLit); return; }
 
   // Biểu đồ tháng (ignore month filter, respect pn/lx/cửa hàng)
   const fuelAll = applyFuel(f, true);
@@ -813,7 +914,7 @@ function render(){
   const dauByMonth = months.map(m=> fuelAll.filter(r=>r.m===m).reduce((s,r)=>s+r.tien,0));
   const litByMonth = months.map(m=> fuelAll.filter(r=>r.m===m).reduce((s,r)=>s+r.lit,0));
   const vetcByMonth = months.map(m=> vetcAll.filter(r=>r.m===m).reduce((s,r)=>s+r.tien,0));
-  const cntByMonth = months.map(m=> vetcAll.filter(r=>r.m===m).length);
+  const cntByMonth = months.map(m=> vetcAll.filter(r=>r.m===m).reduce((s,r)=>s+(r.n||1),0));
 
   monthChartDau.data.datasets[0].data = dauByMonth;
   monthChartDau.update();
@@ -847,12 +948,12 @@ function render(){
   // Top vehicles
   const byPlate = {};
   fuelRows.forEach(r=>{
-    byPlate[r.p] = byPlate[r.p] || {plate:r.pd, dau:0, vetc:0};
+    byPlate[r.p] = byPlate[r.p] || {p:r.p, plate:r.pd, dau:0, vetc:0};
     byPlate[r.p].dau += r.tien;
     byPlate[r.p].plate = r.pd;
   });
   vetcRows.forEach(r=>{
-    byPlate[r.p] = byPlate[r.p] || {plate:r.pd, dau:0, vetc:0};
+    byPlate[r.p] = byPlate[r.p] || {p:r.p, plate:r.pd, dau:0, vetc:0};
     byPlate[r.p].vetc += r.tien;
     if(!byPlate[r.p].plate) byPlate[r.p].plate = r.pd;
   });
@@ -864,6 +965,8 @@ function render(){
   tbody.innerHTML = '';
   arr.forEach((v,i)=>{
     const tr = document.createElement('tr');
+    tr.title = 'Bấm để xem chi tiết xe này';
+    tr.addEventListener('click', ()=>{ pickPlate(v.p); window.scrollTo({top:0, behavior:'smooth'}); });
     const pct = Math.max(6, Math.round((v.total/maxTotal)*100));
     tr.innerHTML = `
       <td><span class="rank">${i+1}</span></td>
@@ -882,6 +985,211 @@ function render(){
   if(arr.length===0){
     tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-faint);text-align:center;padding:20px;">Không có dữ liệu khớp bộ lọc</td></tr>';
   }
+}
+
+// ================= CHI TIẾT THEO NGÀY (1 xe × 1 tháng) =================
+// Dữ liệu từng hoá đơn / từng lượt qua trạm được tải riêng khi cần: ...exec?plate=XX&m=9
+// (lưu cache trong phiên, đổi qua lại giữa các tháng không phải tải lại)
+const DETAIL_CACHE = {};
+let detailToken = 0;
+let dayChart = null;
+const WD = ['CN','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+const nf = (n, d) => new Intl.NumberFormat('vi-VN', {maximumFractionDigits: d||0}).format(n);
+const esc = (t) => String(t==null?'':t).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function getDetail(p, m){
+  const key = p + '|' + m;
+  if(DETAIL_CACHE[key]) return DETAIL_CACHE[key];
+  if(!APPS_SCRIPT_URL) throw new Error('Chưa nối Google Sheet nên chưa có dữ liệu theo ngày');
+  const url = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.indexOf('?')>=0 ? '&' : '?') + 'plate=' + encodeURIComponent(p) + '&m=' + m;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const j = await res.json();
+  if(!j || j.plate === undefined || !Array.isArray(j.fuel))
+    throw new Error('Apps Script đang là bản cũ — vào Deploy > Manage deployments > Edit > New version > Deploy');
+  DETAIL_CACHE[key] = j;
+  return j;
+}
+
+function ensureDayChart(){
+  if(dayChart) return dayChart;
+  const ctx = document.getElementById('chart-day').getContext('2d');
+  dayChart = new Chart(ctx, {
+    type:'bar',
+    data:{ labels:[], datasets:[
+      {label:'Dầu', data:[], backgroundColor:'#FFDF00', borderRadius:3, maxBarThickness:26, stack:'s'},
+      {label:'VETC', data:[], backgroundColor:'#6EBE47', borderRadius:3, maxBarThickness:26, stack:'s'}
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      onClick:(evt, els)=>{ if(els.length) jumpToDay(els[0].index + 1); },
+      onHover:(evt, els)=>{ evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{
+          title:(items)=> dayChart.$meta ? dayChart.$meta.titles[items[0].dataIndex] : '',
+          label:(c)=> c.dataset.label + ': ' + fmtVND(c.parsed.y),
+          footer:(items)=>{
+            const i = items[0].dataIndex, m = dayChart.$meta;
+            if(!m) return '';
+            const out = [];
+            if(m.lit[i]) out.push(nf(m.lit[i],1) + ' lít · ' + m.fills[i] + ' lần đổ');
+            if(m.trips[i]) out.push(m.trips[i] + ' lượt qua trạm');
+            out.push('Tổng: ' + fmtVND(m.total[i]));
+            return out;
+          }
+        }}
+      },
+      scales:{
+        x:{stacked:true, grid:{display:false}, ticks:{autoSkip:false, maxRotation:0, font:{family:"'IBM Plex Mono', monospace", size:10}}},
+        y:{stacked:true, grid:{color:'#2A323D'}, ticks:{callback:(v)=>fmtVNDShort(v), font:{family:"'IBM Plex Mono', monospace", size:11}}}
+      }
+    }
+  });
+  return dayChart;
+}
+
+function jumpToDay(d){
+  const row = document.getElementById('d-row-' + d);
+  if(!row) return;
+  row.scrollIntoView({behavior:'smooth', block:'center'});
+  row.classList.add('flash');
+  const det = row.querySelector('details'); if(det) det.open = true;
+  setTimeout(()=>row.classList.remove('flash'), 1600);
+}
+
+function setMonthNav(m){
+  const i = MONTHS.indexOf(m);
+  const prev = document.getElementById('d-prev'), next = document.getElementById('d-next');
+  prev.disabled = i <= 0; next.disabled = i < 0 || i >= MONTHS.length - 1;
+  prev.textContent = '‹ ' + (i > 0 ? MONTH_NAMES[MONTHS[i-1]] : 'Tháng trước');
+  next.textContent = (i >= 0 && i < MONTHS.length-1 ? MONTH_NAMES[MONTHS[i+1]] : 'Tháng sau') + ' ›';
+}
+function shiftMonth(step){
+  const i = MONTHS.indexOf(getFilters().thang);
+  const j = i + step;
+  if(i < 0 || j < 0 || j >= MONTHS.length) return;
+  selThang.value = MONTH_NAMES[MONTHS[j]];
+  cascade(); render();
+}
+document.getElementById('d-prev').addEventListener('click', ()=>shiftMonth(-1));
+document.getElementById('d-next').addEventListener('click', ()=>shiftMonth(1));
+document.getElementById('d-exit').addEventListener('click', ()=>pickPlate(''));
+
+async function renderDetail(f, totalLitAgg){
+  const token = ++detailToken;
+  const p = bsSelected, m = f.thang;
+  const x = PLATES.find(x=>x.p===p);
+  const pd = x ? x.pd : p;
+  const lx = PLATE_LX[p] || '';
+  document.getElementById('d-title').textContent = 'Chi tiết theo ngày — ' + pd;
+  document.getElementById('d-sub').textContent = [lx, 'Tháng ' + m, f.ch ? 'Cửa hàng: ' + f.ch : ''].filter(Boolean).join(' · ');
+  setMonthNav(m);
+  const body = document.getElementById('d-body'), foot = document.getElementById('d-foot');
+  foot.innerHTML = '';
+  if(!DETAIL_CACHE[p + '|' + m]) body.innerHTML = '<tr><td colspan="4" class="d-empty">Đang tải chi tiết từ Google Sheet…</td></tr>';
+
+  let d;
+  try { d = await getDetail(p, m); }
+  catch(err){
+    if(token !== detailToken) return;
+    body.innerHTML = '<tr><td colspan="4" class="d-empty" style="color:#E2604F">Không tải được chi tiết theo ngày: ' + esc(err.message) + '</td></tr>';
+    return;
+  }
+  if(token !== detailToken) return;
+
+  const fuel = d.fuel.filter(r=> (!f.pn || r.pn===f.pn) && (!f.ch || r.cs===f.ch)).sort((a,b)=> (a.dt||'').localeCompare(b.dt||''));
+  const vetc = d.vetc.filter(r=> (!f.pn || r.pn===f.pn)).sort((a,b)=> (a.dt||'').localeCompare(b.dt||''));
+
+  // Năm + số ngày trong tháng
+  const anyDt = (fuel.concat(vetc).find(r=>r.dt) || {}).dt;
+  const year = anyDt ? Number(anyDt.slice(0,4)) : new Date().getFullYear();
+  const nDays = new Date(year, m, 0).getDate();
+  const inMonth = (dt)=> dt && Number(dt.slice(0,4))===year && Number(dt.slice(5,7))===m;
+
+  // L/100km: chỉ tính khi cột Km là số đồng hồ (tăng dần, > 1000)
+  let prevKm = null;
+  fuel.forEach(r=>{
+    r.l100 = null;
+    if(r.km > 1000){
+      if(prevKm && r.km > prevKm && r.km - prevKm < 3000) r.l100 = r.lit / (r.km - prevKm) * 100;
+      prevKm = r.km;
+    }
+  });
+
+  // Gom theo ngày
+  const days = {}; const outside = [];
+  const bucket = (dd)=> days[dd] = days[dd] || {fuel:[], vetc:[]};
+  fuel.forEach(r=>{ if(inMonth(r.dt)) bucket(Number(r.dt.slice(8,10))).fuel.push(r); else outside.push(Object.assign({kind:'fuel'}, r)); });
+  vetc.forEach(r=>{ if(inMonth(r.dt)) bucket(Number(r.dt.slice(8,10))).vetc.push(r); else outside.push(Object.assign({kind:'vetc'}, r)); });
+
+  // Biểu đồ
+  const labels = [], fuelT = [], vetcT = [], lit = [], fills = [], trips = [], total = [], titles = [];
+  for(let dd=1; dd<=nDays; dd++){
+    const b = days[dd] || {fuel:[], vetc:[]};
+    const ft = b.fuel.reduce((s,r)=>s+r.tien,0), vt = b.vetc.reduce((s,r)=>s+r.tien,0);
+    const wd = new Date(year, m-1, dd).getDay();
+    labels.push(String(dd));
+    fuelT.push(ft); vetcT.push(vt); total.push(ft+vt);
+    lit.push(b.fuel.reduce((s,r)=>s+r.lit,0)); fills.push(b.fuel.length); trips.push(b.vetc.length);
+    titles.push(WD[wd] + ', ' + String(dd).padStart(2,'0') + '/' + String(m).padStart(2,'0') + '/' + year);
+  }
+  const ch = ensureDayChart();
+  ch.data.labels = labels;
+  ch.data.datasets[0].data = fuelT;
+  ch.data.datasets[1].data = vetcT;
+  ch.$meta = {lit, fills, trips, total, titles};
+  ch.update();
+
+  // Nhật ký
+  const fuelLine = (r)=>{
+    const bits = ['<em>' + esc(r.cs) + '</em>', nf(r.lit,1) + ' L'];
+    if(r.hd) bits.push('HĐ ' + esc(r.hd));
+    if(r.km) bits.push('Km ' + nf(r.km));
+    if(r.l100) bits.push('≈ ' + nf(r.l100,1) + ' L/100km');
+    return '<div class="d-line"><span>' + bits.join(' · ') + '</span><b>' + fmtVND(r.tien) + '</b></div>';
+  };
+  const vetcCell = (arr)=>{
+    if(!arr.length) return '<span class="d-muted">—</span>';
+    const sum = arr.reduce((s,r)=>s+r.tien,0);
+    return '<details><summary><span>' + arr.length + ' lượt qua trạm</span><b>' + fmtVND(sum) + '</b></summary>' +
+      arr.map(r=>'<div class="d-line"><span>' + esc((r.dt||'').slice(11,16)) + ' · <em>' + esc(r.tram || 'Không rõ trạm') + '</em></span><b>' + fmtVND(r.tien) + '</b></div>').join('') +
+      '</details>';
+  };
+  let html = '';
+  Object.keys(days).map(Number).sort((a,b)=>a-b).forEach(dd=>{
+    const b = days[dd];
+    const tot = b.fuel.reduce((s,r)=>s+r.tien,0) + b.vetc.reduce((s,r)=>s+r.tien,0);
+    const wd = new Date(year, m-1, dd).getDay();
+    html += '<tr id="d-row-' + dd + '"><td class="d-date">' + String(dd).padStart(2,'0') + '/' + String(m).padStart(2,'0') + '<small>' + WD[wd] + '</small></td>' +
+      '<td>' + (b.fuel.length ? b.fuel.map(fuelLine).join('') : '<span class="d-muted">—</span>') + '</td>' +
+      '<td>' + vetcCell(b.vetc) + '</td>' +
+      '<td class="num d-total">' + fmtVND(tot) + '</td></tr>';
+  });
+  if(outside.length){
+    html += '<tr><td class="d-date">Khác<small class="warn-tag">ngày lệch tháng</small></td><td colspan="2">' +
+      outside.map(r=> r.kind==='fuel'
+        ? fuelLine(r).replace('<span>', '<span>' + esc((r.dt||'?').slice(0,10)) + ' · ')
+        : '<div class="d-line"><span>' + esc(r.dt||'?') + ' · VETC · <em>' + esc(r.tram) + '</em></span><b>' + fmtVND(r.tien) + '</b></div>').join('') +
+      '</td><td class="num d-total">' + fmtVND(outside.reduce((s,r)=>s+r.tien,0)) + '</td></tr>';
+  }
+  if(!html) html = '<tr><td colspan="4" class="d-empty">Xe này không phát sinh chi phí trong tháng ' + m + ' (theo bộ lọc đang chọn)</td></tr>';
+  body.innerHTML = html;
+
+  const fSum = fuel.reduce((s,r)=>s+r.tien,0), vSum = vetc.reduce((s,r)=>s+r.tien,0);
+  const litSum = fuel.reduce((s,r)=>s+r.lit,0);
+  const activeDays = Object.keys(days).length;
+  foot.innerHTML = '<tr><td>Cộng</td><td>' + fuel.length + ' lần đổ · ' + nf(litSum,1) + ' L · ' + fmtVND(fSum) + '</td><td>' +
+    vetc.length + ' lượt · ' + fmtVND(vSum) + '</td><td class="num" style="color:var(--amber)">' + fmtVND(fSum+vSum) + '</td></tr>';
+
+  // KPI riêng cho 1 xe
+  document.getElementById('kpi-dau-sub').textContent = nf(litSum,1) + ' lít · ' + fuel.length + ' lần đổ';
+  document.getElementById('kpi-vetc-sub').textContent = vetc.length + ' lượt qua trạm';
+  document.getElementById('kpi-total-sub').textContent = activeDays ? 'TB ' + fmtVNDShort((fSum+vSum)/activeDays) + ' đ / ngày chạy' : 'Dầu + VETC';
+  document.getElementById('kpi-xe-label').textContent = 'Ngày phát sinh chi phí';
+  document.getElementById('kpi-xe').textContent = activeDays + ' / ' + nDays;
+  document.getElementById('kpi-xe-sub').textContent = litSum ? 'Giá dầu TB ' + nf(fSum/litSum) + ' đ/lít' : 'ngày trong tháng';
 }
 
 // Bộ lọc liên kết: đổi Tháng/Phân nhóm/Loại xe -> Cửa hàng + Biển số tự thu hẹp
