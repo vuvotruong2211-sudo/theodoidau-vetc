@@ -171,6 +171,39 @@
     cursor:pointer;
   }
   .filters select:focus{outline:2px solid var(--amber);outline-offset:1px;}
+  .combo{position:relative;min-width:190px;}
+  .combo input{
+    width:100%;box-sizing:border-box;
+    background:var(--bg-panel-2);border:1px solid var(--line);color:var(--text);
+    font-family:var(--font-body);font-weight:500;font-size:13px;
+    padding:8px 28px 8px 10px;border-radius:6px;
+  }
+  .combo input::placeholder{color:var(--text-faint);font-weight:400;}
+  .combo input:focus{outline:2px solid var(--amber);outline-offset:1px;}
+  .combo-clear{
+    position:absolute;right:4px;top:50%;transform:translateY(-50%);
+    background:transparent;border:0;color:var(--text-faint);font-size:16px;line-height:1;
+    padding:2px 6px;cursor:pointer;display:none;
+  }
+  .combo.has-value .combo-clear{display:block;}
+  .combo-clear:hover{color:var(--text);}
+  .combo-list{
+    position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:50;
+    margin:0;padding:4px 0;list-style:none;
+    max-height:280px;overflow-y:auto;
+    background:var(--bg-panel);border:1px solid var(--line);border-radius:6px;
+    box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;
+  }
+  .combo.open .combo-list{display:block;}
+  .combo-list li{
+    padding:7px 10px;font-size:13px;cursor:pointer;color:var(--text);
+    font-family:var(--font-mono);display:flex;justify-content:space-between;gap:10px;
+  }
+  .combo-list li .lx{font-family:var(--font-body);font-size:11px;color:var(--text-faint);white-space:nowrap;}
+  .combo-list li.active, .combo-list li:hover{background:var(--bg-panel-2);}
+  .combo-list li.empty{cursor:default;color:var(--text-faint);font-family:var(--font-body);}
+  .combo-list li.all{font-family:var(--font-body);color:var(--text-dim);border-bottom:1px solid var(--line);}
+  .combo-list mark{background:transparent;color:var(--amber);font-weight:700;}
   .filters .reset{
     align-self:flex-end;
     background:transparent;
@@ -339,7 +372,7 @@
       <select id="f-phannhom"></select>
     </div>
     <div class="fgroup">
-      <label for="f-loaixe">Loại xe (dầu)</label>
+      <label for="f-loaixe">Loại xe</label>
       <select id="f-loaixe"></select>
     </div>
     <div class="fgroup">
@@ -348,7 +381,11 @@
     </div>
     <div class="fgroup">
       <label for="f-bienso">Biển số xe</label>
-      <select id="f-bienso"></select>
+      <div class="combo" id="bs-combo">
+        <input id="f-bienso" type="text" autocomplete="off" spellcheck="false" placeholder="Gõ biển số, VD: 4692">
+        <button type="button" class="combo-clear" id="bs-clear" title="Xoá" aria-label="Xoá biển số">×</button>
+        <ul class="combo-list" id="bs-list" role="listbox"></ul>
+      </div>
     </div>
     <button class="reset" id="reset-btn">↺ Xoá lọc</button>
     <select class="theme-select" id="theme-select">
@@ -432,7 +469,7 @@
   </div>
 
   <footer>
-    Nguồn: CTT_HOÁ_ĐƠN_DẦU.xlsx (Tháng 1–8) &amp; VETC_THÁNG_7.xlsx · Dữ liệu chuẩn hoá biển số để khớp Dầu/VETC<br>
+    Nguồn: Google Sheet RAW_DAU &amp; RAW_VETC · Loại xe theo cột M, biển số theo cột P (RAW_DAU) · Biển số chuẩn hoá để khớp Dầu/VETC<br>
     Cập nhật số liệu: thay dữ liệu trong file Excel/Google Sheet gốc rồi dựng lại dashboard
   </footer>
 
@@ -516,7 +553,24 @@ function populateMonthFilter(){
 computeMonths();
 populateMonthFilter();
 fillSelect(selPN, ['CÔNG TY','CHI NHÁNH'], 'Tất cả phân nhóm');
-fillSelect(selLX, ['XE TAI','XE KHÁCH TUẤN TÚ'], 'Tất cả loại xe');
+// ---------- Loại xe: quét trực tiếp từ cột M (RAW_DAU) ----------
+// Không cố định danh sách — cột M có bao nhiêu loại thì dropdown hiện bấy nhiêu.
+function lxKey(s){ return String(s||'').toUpperCase().replace(/\s+/g,' ').trim(); }
+let PLATE_LX = {}; // biển số -> loại xe (lấy từ data Dầu) để lọc luôn VETC theo loại xe
+function populateLoaiXeFilter(){
+  const labels = {};
+  PLATE_LX = {};
+  DATA.fuel.forEach(r=>{
+    const k = lxKey(r.lx);
+    if(!k) return;
+    labels[k] = k;
+    PLATE_LX[r.p] = k;
+  });
+  const current = selLX.value;
+  fillSelect(selLX, Object.keys(labels).sort((a,b)=>a.localeCompare(b,'vi')), 'Tất cả loại xe');
+  if(labels[current]) selLX.value = current;
+}
+populateLoaiXeFilter();
 
 function populateStoreFilter(){
   const stores = Array.from(new Set(DATA.fuel.map(r=>r.cs).filter(Boolean))).sort();
@@ -526,24 +580,85 @@ function populateStoreFilter(){
 }
 populateStoreFilter();
 
+// ---------- Biển số: ô gõ tìm + danh sách gợi ý ----------
+// Gõ 1 phần (VD "4692", "76h", "76H-046") -> lọc ngay tất cả xe khớp.
+// Bấm chọn 1 dòng trong danh sách (hoặc Enter) -> lọc đúng 1 xe.
+const bsCombo = document.getElementById('bs-combo');
+const bsList = document.getElementById('bs-list');
+const bsClear = document.getElementById('bs-clear');
+let PLATES = [];          // [{p, pd}]
+let bsSelected = null;    // biển số đã chọn chính xác
+let bsActive = -1;        // dòng đang highlight khi dùng phím mũi tên
+function plateKey(s){ return String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,''); }
 function populatePlateFilter(){
   const map = {};
   DATA.fuel.forEach(r=>{ if(r.p) map[r.p] = r.pd || r.p; });
   DATA.vetc.forEach(r=>{ if(r.p) map[r.p] = map[r.p] || r.pd || r.p; });
-  const plates = Object.keys(map).sort((a,b)=> (map[a]||'').localeCompare(map[b]||''));
-  const current = selBS.value;
-  selBS.innerHTML = '';
-  const optAll = document.createElement('option');
-  optAll.value=''; optAll.textContent='Tất cả biển số';
-  selBS.appendChild(optAll);
-  plates.forEach(p=>{
-    const o = document.createElement('option');
-    o.value = p; o.textContent = map[p];
-    selBS.appendChild(o);
-  });
-  if(plates.includes(current)) selBS.value = current;
+  PLATES = Object.keys(map).map(p=>({p, pd:map[p]})).sort((a,b)=> a.pd.localeCompare(b.pd));
+  if(bsSelected && !map[bsSelected]) bsSelected = null;
 }
 populatePlateFilter();
+function bsQuery(){ return plateKey(selBS.value); }
+function plateMatches(p){
+  if(bsSelected) return p === bsSelected;
+  const q = bsQuery();
+  if(!q) return true;
+  return plateKey(p).includes(q);
+}
+function hl(text, q){
+  if(!q) return text;
+  // tô sáng phần khớp, bỏ qua dấu "-" / "." trong biển số hiển thị
+  let out = '', i = 0, key = '', idxMap = [];
+  for(let j=0;j<text.length;j++){ const c = text[j].toUpperCase(); if(/[A-Z0-9]/.test(c)){ key += c; idxMap.push(j); } }
+  const pos = key.indexOf(q);
+  if(pos < 0) return text;
+  const start = idxMap[pos], end = idxMap[pos+q.length-1] + 1;
+  return text.slice(0,start) + '<mark>' + text.slice(start,end) + '</mark>' + text.slice(end);
+}
+function renderBsList(){
+  const q = bsSelected ? '' : bsQuery();
+  const items = PLATES.filter(x=> !q || plateKey(x.p).includes(q) || plateKey(x.pd).includes(q));
+  const lxLabel = k => { const o = Array.from(selLX.options).find(o=>o.value===k); return o ? o.textContent : ''; };
+  let html = '<li class="all" data-p="">Tất cả biển số (' + PLATES.length + ' xe)</li>';
+  if(items.length===0){
+    html += '<li class="empty">Không có biển số khớp "' + selBS.value.replace(/</g,'&lt;') + '"</li>';
+  } else {
+    html += items.map((x,i)=>'<li data-p="'+x.p+'" class="'+(i===bsActive?'active':'')+'"><span>'+hl(x.pd,q)+'</span><span class="lx">'+lxLabel(PLATE_LX[x.p]||'')+'</span></li>').join('');
+  }
+  bsList.innerHTML = html;
+  bsCombo.classList.toggle('has-value', !!selBS.value);
+}
+function openBs(){ bsCombo.classList.add('open'); renderBsList(); }
+function closeBs(){ bsCombo.classList.remove('open'); bsActive = -1; }
+function pickPlate(p){
+  if(!p){ bsSelected = null; selBS.value = ''; }
+  else { bsSelected = p; const x = PLATES.find(x=>x.p===p); selBS.value = x ? x.pd : p; }
+  bsCombo.classList.toggle('has-value', !!selBS.value);
+  closeBs(); render();
+}
+selBS.addEventListener('focus', ()=>{ openBs(); selBS.select(); });
+selBS.addEventListener('input', ()=>{ bsSelected = null; bsActive = -1; openBs(); render(); });
+selBS.addEventListener('keydown', (e)=>{
+  const lis = Array.from(bsList.querySelectorAll('li[data-p]:not(.all)'));
+  if(e.key==='ArrowDown'){ e.preventDefault(); if(!bsCombo.classList.contains('open')) openBs(); bsActive = Math.min(bsActive+1, lis.length-1); renderBsList(); scrollActive(); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); bsActive = Math.max(bsActive-1, 0); renderBsList(); scrollActive(); }
+  else if(e.key==='Enter'){
+    e.preventDefault();
+    if(bsActive>=0 && lis[bsActive]) pickPlate(lis[bsActive].dataset.p);
+    else if(lis.length===1) pickPlate(lis[0].dataset.p);
+    else { closeBs(); selBS.blur(); }
+  }
+  else if(e.key==='Escape'){ closeBs(); selBS.blur(); }
+});
+function scrollActive(){ const a = bsList.querySelector('li.active'); if(a) a.scrollIntoView({block:'nearest'}); }
+bsList.addEventListener('mousedown', (e)=>{
+  const li = e.target.closest('li[data-p]');
+  if(!li) return;
+  e.preventDefault();
+  pickPlate(li.dataset.p);
+});
+bsClear.addEventListener('click', ()=>{ pickPlate(''); });
+document.addEventListener('click', (e)=>{ if(!bsCombo.contains(e.target)) closeBs(); });
 
 const monthLabelToNum = {};
 Object.keys(MONTH_NAMES).forEach(k=>monthLabelToNum[MONTH_NAMES[k]] = Number(k));
@@ -624,7 +739,7 @@ function getFilters(){
     pn: selPN.value || null,
     lx: selLX.value || null,
     ch: selCH.value || null,
-    bs: selBS.value || null
+    bs: (bsSelected || bsQuery()) ? true : null
   };
 }
 
@@ -632,9 +747,9 @@ function applyFuel(f, ignoreMonth, ignorePn){
   return DATA.fuel.filter(r=>{
     if(!ignoreMonth && f.thang && r.m !== f.thang) return false;
     if(!ignorePn && f.pn && r.pn !== f.pn) return false;
-    if(f.lx && r.lx !== f.lx) return false;
+    if(f.lx && lxKey(r.lx) !== f.lx) return false;
     if(f.ch && r.cs !== f.ch) return false;
-    if(f.bs && r.p !== f.bs) return false;
+    if(f.bs && !plateMatches(r.p)) return false;
     return true;
   });
 }
@@ -642,7 +757,8 @@ function applyVetc(f, ignoreMonth, ignorePn){
   return DATA.vetc.filter(r=>{
     if(!ignoreMonth && f.thang && r.m !== f.thang) return false;
     if(!ignorePn && f.pn && r.pn !== f.pn) return false;
-    if(f.bs && r.p !== f.bs) return false;
+    if(f.lx && PLATE_LX[r.p] !== f.lx) return false; // VETC không có cột loại xe -> suy từ biển số bên Dầu
+    if(f.bs && !plateMatches(r.p)) return false;
     return true;
   });
 }
@@ -749,9 +865,10 @@ function render(){
   }
 }
 
-[selThang, selPN, selLX, selCH, selBS].forEach(s=> s.addEventListener('change', render));
+[selThang, selPN, selLX, selCH].forEach(s=> s.addEventListener('change', render));
 document.getElementById('reset-btn').addEventListener('click', ()=>{
-  selThang.value=''; selPN.value=''; selLX.value=''; selCH.value=''; selBS.value='';
+  selThang.value=''; selPN.value=''; selLX.value=''; selCH.value=''; selBS.value=''; bsSelected=null;
+  bsCombo.classList.remove('has-value');
   render();
 });
 
@@ -797,6 +914,7 @@ async function loadLiveData(){
   }
   computeMonths();
   populateMonthFilter();
+  populateLoaiXeFilter();
   populateStoreFilter();
   populatePlateFilter();
   render();
