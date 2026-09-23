@@ -188,7 +188,7 @@
   .combo.has-value .combo-clear{display:block;}
   .combo-clear:hover{color:var(--text);}
   .combo-list{
-    position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:50;
+    position:absolute;left:0;min-width:100%;width:max-content;max-width:340px;top:calc(100% + 4px);z-index:50;
     margin:0;padding:4px 0;list-style:none;
     max-height:280px;overflow-y:auto;
     background:var(--bg-panel);border:1px solid var(--line);border-radius:6px;
@@ -197,7 +197,7 @@
   .combo.open .combo-list{display:block;}
   .combo-list li{
     padding:7px 10px;font-size:13px;cursor:pointer;color:var(--text);
-    font-family:var(--font-mono);display:flex;justify-content:space-between;gap:10px;
+    font-family:var(--font-mono);display:flex;justify-content:space-between;gap:14px;white-space:nowrap;
   }
   .combo-list li .lx{font-family:var(--font-body);font-size:11px;color:var(--text-faint);white-space:nowrap;}
   .combo-list li.active, .combo-list li:hover{background:var(--bg-panel-2);}
@@ -572,13 +572,16 @@ function populateLoaiXeFilter(){
 }
 populateLoaiXeFilter();
 
+// Cửa hàng: chỉ hiện các cây dầu có phát sinh theo Tháng / Phân nhóm / Loại xe đang chọn
 function populateStoreFilter(){
-  const stores = Array.from(new Set(DATA.fuel.map(r=>r.cs).filter(Boolean))).sort();
+  const f = (typeof getFilters==='function' && selThang) ? getFilters() : {};
+  const stores = Array.from(new Set(DATA.fuel.filter(r=>
+      (!f.thang || r.m===f.thang) && (!f.pn || r.pn===f.pn) && (!f.lx || lxKey(r.lx)===f.lx)
+    ).map(r=>r.cs).filter(Boolean))).sort();
   const current = selCH.value;
-  fillSelect(selCH, stores, 'Tất cả cửa hàng');
+  fillSelect(selCH, stores, 'Tất cả cửa hàng' + (f.thang||f.pn||f.lx ? ' ('+stores.length+')' : ''));
   if(stores.includes(current)) selCH.value = current;
 }
-populateStoreFilter();
 
 // ---------- Biển số: ô gõ tìm + danh sách gợi ý ----------
 // Gõ 1 phần (VD "4692", "76h", "76H-046") -> lọc ngay tất cả xe khớp.
@@ -590,14 +593,30 @@ let PLATES = [];          // [{p, pd}]
 let bsSelected = null;    // biển số đã chọn chính xác
 let bsActive = -1;        // dòng đang highlight khi dùng phím mũi tên
 function plateKey(s){ return String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,''); }
+// Biển số: chỉ hiện xe có phát sinh theo Tháng / Phân nhóm / Loại xe / Cửa hàng đang chọn
 function populatePlateFilter(){
+  const f = getFilters();
   const map = {};
-  DATA.fuel.forEach(r=>{ if(r.p) map[r.p] = r.pd || r.p; });
-  DATA.vetc.forEach(r=>{ if(r.p) map[r.p] = map[r.p] || r.pd || r.p; });
+  DATA.fuel.forEach(r=>{
+    if(!r.p) return;
+    if(f.thang && r.m!==f.thang) return;
+    if(f.pn && r.pn!==f.pn) return;
+    if(f.lx && lxKey(r.lx)!==f.lx) return;
+    if(f.ch && r.cs!==f.ch) return;
+    map[r.p] = r.pd || r.p;
+  });
+  if(!f.ch){ // VETC không có cửa hàng -> chỉ gộp thêm khi không lọc cửa hàng
+    DATA.vetc.forEach(r=>{
+      if(!r.p) return;
+      if(f.thang && r.m!==f.thang) return;
+      if(f.pn && r.pn!==f.pn) return;
+      if(f.lx && PLATE_LX[r.p]!==f.lx) return;
+      map[r.p] = map[r.p] || r.pd || r.p;
+    });
+  }
   PLATES = Object.keys(map).map(p=>({p, pd:map[p]})).sort((a,b)=> a.pd.localeCompare(b.pd));
-  if(bsSelected && !map[bsSelected]) bsSelected = null;
+  if(bsSelected && !map[bsSelected]){ bsSelected = null; selBS.value = ''; bsCombo.classList.remove('has-value'); }
 }
-populatePlateFilter();
 function bsQuery(){ return plateKey(selBS.value); }
 function plateMatches(p){
   if(bsSelected) return p === bsSelected;
@@ -865,10 +884,14 @@ function render(){
   }
 }
 
-[selThang, selPN, selLX, selCH].forEach(s=> s.addEventListener('change', render));
+// Bộ lọc liên kết: đổi Tháng/Phân nhóm/Loại xe -> Cửa hàng + Biển số tự thu hẹp
+function cascade(){ populateStoreFilter(); populatePlateFilter(); if(bsCombo.classList.contains('open')) renderBsList(); }
+[selThang, selPN, selLX].forEach(s=> s.addEventListener('change', ()=>{ cascade(); render(); }));
+selCH.addEventListener('change', ()=>{ populatePlateFilter(); render(); });
 document.getElementById('reset-btn').addEventListener('click', ()=>{
   selThang.value=''; selPN.value=''; selLX.value=''; selCH.value=''; selBS.value=''; bsSelected=null;
   bsCombo.classList.remove('has-value');
+  cascade();
   render();
 });
 
@@ -886,6 +909,7 @@ function showStatus(msg, isError){
 async function loadLiveData(){
   if(!APPS_SCRIPT_URL){
     showStatus('Đang xem dữ liệu mẫu (chưa nối Google Sheet — xem AppsScript_Code.gs)');
+    populateLoaiXeFilter(); cascade();
     render();
     return;
   }
