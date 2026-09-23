@@ -385,7 +385,7 @@
   <div class="grid-2">
     <div class="panel">
       <h2 style="color:var(--amber)">Dầu — theo tháng</h2>
-      <p class="p-sub">Toàn bộ 12 tháng, không áp bộ lọc Tháng</p>
+      <p class="p-sub">Tất cả tháng có dữ liệu, không áp bộ lọc Tháng</p>
       <div class="chart-box small"><canvas id="chart-month-dau"></canvas></div>
       <table style="margin-top:14px">
         <thead>
@@ -396,7 +396,7 @@
     </div>
     <div class="panel">
       <h2 style="color:var(--teal)">VETC — theo tháng</h2>
-      <p class="p-sub">Toàn bộ 12 tháng, không áp bộ lọc Tháng</p>
+      <p class="p-sub">Tất cả tháng có dữ liệu, không áp bộ lọc Tháng</p>
       <div class="chart-box small"><canvas id="chart-month-vetc"></canvas></div>
       <table style="margin-top:14px">
         <thead>
@@ -499,7 +499,22 @@ function fillSelect(sel, values, allLabel){
     sel.appendChild(o);
   });
 }
-fillSelect(selThang, [1,2,3,4,5,6,7,8].map(m=>MONTH_NAMES[m]), 'Tất cả tháng');
+// Danh sách tháng tự động theo dữ liệu: T1 → tháng lớn nhất có data (tối đa 12)
+let MONTHS = [1,2,3,4,5,6,7,8];
+function computeMonths(){
+  let maxM = 0;
+  DATA.fuel.forEach(r=>{ if(r.m>maxM && r.m<=12) maxM = r.m; });
+  DATA.vetc.forEach(r=>{ if(r.m>maxM && r.m<=12) maxM = r.m; });
+  if(maxM < 1) maxM = 1;
+  MONTHS = Array.from({length:maxM}, (_,i)=>i+1);
+}
+function populateMonthFilter(){
+  const current = selThang.value;
+  fillSelect(selThang, MONTHS.map(m=>MONTH_NAMES[m]), 'Tất cả tháng');
+  if(MONTHS.map(m=>MONTH_NAMES[m]).includes(current)) selThang.value = current;
+}
+computeMonths();
+populateMonthFilter();
 fillSelect(selPN, ['CÔNG TY','CHI NHÁNH'], 'Tất cả phân nhóm');
 fillSelect(selLX, ['XE TAI','XE KHÁCH TUẤN TÚ'], 'Tất cả loại xe');
 
@@ -542,7 +557,7 @@ function makeMonthChart(canvasId, color){
   return new Chart(ctx, {
     type:'bar',
     data:{
-      labels:[1,2,3,4,5,6,7,8].map(m=>MONTH_NAMES[m]),
+      labels:MONTHS.map(m=>MONTH_NAMES[m]),
       datasets:[{data:[], backgroundColor:color, borderRadius:4, maxBarThickness:34}]
     },
     options:{
@@ -656,7 +671,10 @@ function render(){
   // Biểu đồ tháng (ignore month filter, respect pn/lx/cửa hàng)
   const fuelAll = applyFuel(f, true);
   const vetcAll = applyVetc(f, true);
-  const months = [1,2,3,4,5,6,7,8];
+  const months = MONTHS;
+  const monthLabels = MONTHS.map(m=>MONTH_NAMES[m]);
+  monthChartDau.data.labels = monthLabels;
+  monthChartVetc.data.labels = monthLabels;
   const dauByMonth = months.map(m=> fuelAll.filter(r=>r.m===m).reduce((s,r)=>s+r.tien,0));
   const litByMonth = months.map(m=> fuelAll.filter(r=>r.m===m).reduce((s,r)=>s+r.lit,0));
   const vetcByMonth = months.map(m=> vetcAll.filter(r=>r.m===m).reduce((s,r)=>s+r.tien,0));
@@ -777,6 +795,8 @@ async function loadLiveData(){
     DATA = FALLBACK_DATA;
     showStatus('Không tải được Google Sheet, đang hiện dữ liệu mẫu (' + err.message + ')', true);
   }
+  computeMonths();
+  populateMonthFilter();
   populateStoreFilter();
   populatePlateFilter();
   render();
